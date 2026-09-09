@@ -11,6 +11,7 @@ import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 let Skill = class Skill {
     id;
     name;
+    category;
 };
 __decorate([
     PrimaryGeneratedColumn('uuid'),
@@ -20,6 +21,10 @@ __decorate([
     Column({ unique: true }),
     __metadata("design:type", String)
 ], Skill.prototype, "name", void 0);
+__decorate([
+    Column({ nullable: true }),
+    __metadata("design:type", String)
+], Skill.prototype, "category", void 0);
 Skill = __decorate([
     Entity('skills')
 ], Skill);

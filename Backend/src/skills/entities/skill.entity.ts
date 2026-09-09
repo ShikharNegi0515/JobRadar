@@ -7,4 +7,7 @@ export class Skill {
 
   @Column({ unique: true })
   name: string;
+
+  @Column({ nullable: true })
+  category: string;
 }

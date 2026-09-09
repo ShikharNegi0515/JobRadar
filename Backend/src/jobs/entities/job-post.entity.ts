@@ -82,22 +82,22 @@ export class JobPost {
   employment_type: EmploymentType;
 
   @Column({ type: 'int', nullable: true })
-  experience_min: number;
+  experience_min: number | null;
 
   @Column({ type: 'int', nullable: true })
-  experience_max: number;
+  experience_max: number | null;
 
   @Column({ type: 'int', nullable: true })
-  salary_min: number;
+  salary_min: number | null;
 
   @Column({ type: 'int', nullable: true })
-  salary_max: number;
+  salary_max: number | null;
 
-  @Column({ nullable: true })
-  salary_currency: string;
+  @Column({ type: 'varchar', nullable: true })
+  salary_currency: string | null;
 
-  @Column({ nullable: true })
-  application_email: string;
+  @Column({ type: 'varchar', nullable: true })
+  application_email: string | null;
 
   @Column({ nullable: true })
   application_url: string;

@@ -126,27 +126,27 @@ __decorate([
 ], JobPost.prototype, "employment_type", void 0);
 __decorate([
     Column({ type: 'int', nullable: true }),
-    __metadata("design:type", Number)
+    __metadata("design:type", Object)
 ], JobPost.prototype, "experience_min", void 0);
 __decorate([
     Column({ type: 'int', nullable: true }),
-    __metadata("design:type", Number)
+    __metadata("design:type", Object)
 ], JobPost.prototype, "experience_max", void 0);
 __decorate([
     Column({ type: 'int', nullable: true }),
-    __metadata("design:type", Number)
+    __metadata("design:type", Object)
 ], JobPost.prototype, "salary_min", void 0);
 __decorate([
     Column({ type: 'int', nullable: true }),
-    __metadata("design:type", Number)
+    __metadata("design:type", Object)
 ], JobPost.prototype, "salary_max", void 0);
 __decorate([
-    Column({ nullable: true }),
-    __metadata("design:type", String)
+    Column({ type: 'varchar', nullable: true }),
+    __metadata("design:type", Object)
 ], JobPost.prototype, "salary_currency", void 0);
 __decorate([
-    Column({ nullable: true }),
-    __metadata("design:type", String)
+    Column({ type: 'varchar', nullable: true }),
+    __metadata("design:type", Object)
 ], JobPost.prototype, "application_email", void 0);
 __decorate([
     Column({ nullable: true }),

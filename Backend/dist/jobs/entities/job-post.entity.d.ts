@@ -32,12 +32,12 @@ export declare class JobPost {
     location: string;
     work_mode: WorkMode;
     employment_type: EmploymentType;
-    experience_min: number;
-    experience_max: number;
-    salary_min: number;
-    salary_max: number;
-    salary_currency: string;
-    application_email: string;
+    experience_min: number | null;
+    experience_max: number | null;
+    salary_min: number | null;
+    salary_max: number | null;
+    salary_currency: string | null;
+    application_email: string | null;
     application_url: string;
     posted_at: Date;
     likes: number;

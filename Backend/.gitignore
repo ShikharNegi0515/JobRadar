@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Playwright session
+linkedin-session.json
+
+# Editor
+.vscode/
+.idea/
+.DS_Store
