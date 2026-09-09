@@ -13,6 +13,7 @@ import { Skill } from './skills/entities/skill.entity.js';
 import { SavedJob } from './jobs/entities/saved-job.entity.js';
 import { Application } from './applications/entities/application.entity.js';
 import { UserSkill } from './users/entities/user-skill.entity.js';
+import { AuthModule } from './auth/auth.module.js';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { UserSkill } from './users/entities/user-skill.entity.js';
     JobsModule,
     SkillsModule,
     ApplicationsModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
