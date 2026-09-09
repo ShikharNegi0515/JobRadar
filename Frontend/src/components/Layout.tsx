@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Briefcase, Bookmark, LogOut, Radar } from 'lucide-react';
+import { Briefcase, Bookmark, LogOut, Radar, Sparkles } from 'lucide-react';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { user, logout } = useAuth();
@@ -15,9 +15,11 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   const navItems = [
     { name: 'Discover', path: '/', icon: <Radar size={20} /> },
+    { name: 'AI Insights', path: '/ai-insights', icon: <Sparkles size={20} className="text-indigo-400" /> },
     { name: 'Applications', path: '/applications', icon: <Briefcase size={20} /> },
     { name: 'Saved', path: '/saved', icon: <Bookmark size={20} /> },
   ];
+
 
   if (!user) {
     return <div className="min-h-screen flex items-center justify-center bg-[#0a0a0f]"><div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div></div>;

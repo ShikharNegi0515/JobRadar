@@ -63,3 +63,29 @@ export interface SavedJob {
   jobPost: JobPost;
   created_at: string;
 }
+
+export interface AIMatchResult {
+  match_score: number;
+  matching_skills: string[];
+  missing_skills: string[];
+  recommendations: string[];
+  resume_bullet_suggestions: string[];
+  summary: string;
+}
+
+export interface SkillGapItem {
+  skill: string;
+  category: string;
+  demandCount: number;
+  matchPercentage: number;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  recommendation: string;
+}
+
+export interface SkillGapOverview {
+  overallPreparednessScore: number;
+  totalTargetJobsAnalyzed: number;
+  topMissingSkills: SkillGapItem[];
+  userCurrentSkills: string[];
+}
+

@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Applications from './pages/Applications';
 import SavedJobs from './pages/SavedJobs';
+import SkillGapAnalysis from './pages/SkillGapAnalysis';
 import Login from './pages/Login';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -38,6 +39,14 @@ export default function App() {
           </ProtectedRoute>
         } />
         
+        <Route path="/ai-insights" element={
+          <ProtectedRoute>
+            <Layout>
+              <SkillGapAnalysis />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        
         <Route path="/applications" element={
           <ProtectedRoute>
             <Layout>
@@ -45,6 +54,7 @@ export default function App() {
             </Layout>
           </ProtectedRoute>
         } />
+
         
         <Route path="/saved" element={
           <ProtectedRoute>

@@ -18,6 +18,23 @@ export interface ExtractedJob {
   application_email: string | null;
 }
 
+export interface AIMatchResult {
+  match_score: number;
+  matching_skills: string[];
+  missing_skills: string[];
+  recommendations: string[];
+  resume_bullet_suggestions: string[];
+  summary: string;
+}
+
+export interface SkillGapItem {
+  skill: string;
+  demand_count: number;
+  percentage: number;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  recommended_resources: string[];
+}
+
 @Injectable()
 export class AIService {
   private readonly logger = new Logger(AIService.name);
@@ -26,7 +43,7 @@ export class AIService {
   constructor() {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-      this.logger.warn('GEMINI_API_KEY not set — AI extraction will be skipped');
+      this.logger.warn('GEMINI_API_KEY not set — AI extraction will run in dev fallback mode');
     }
     this.genAI = new GoogleGenerativeAI(apiKey || '');
   }
@@ -34,7 +51,6 @@ export class AIService {
   async extractJobFromPost(postContent: string, authorName: string): Promise<ExtractedJob | null> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || apiKey === 'your_gemini_api_key_here') {
-      // Return a mock classification for dev mode
       return this.mockExtract(postContent, authorName);
     }
 
@@ -77,7 +93,6 @@ Rules:
       const result = await model.generateContent(prompt);
       const text = result.response.text().trim();
 
-      // Strip markdown code fences if present
       const jsonStr = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       return JSON.parse(jsonStr) as ExtractedJob;
     } catch (error) {
@@ -86,20 +101,114 @@ Rules:
     }
   }
 
-  /**
-   * Simple regex-based mock extractor for dev mode (no API key needed)
-   */
+  async analyzeResumeMatch(
+    jobTitle: string,
+    jobDescription: string,
+    jobSkills: string[],
+    userSkills: string[],
+    resumeText?: string
+  ): Promise<AIMatchResult> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+      return this.mockMatch(jobTitle, jobDescription, jobSkills, userSkills, resumeText);
+    }
+
+    try {
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+      const prompt = `You are an expert AI Resume Matcher and Career Coach. Analyze candidate's resume/skills against a job role.
+
+Job Title: ${jobTitle}
+Job Skills Required: ${jobSkills.join(', ')}
+Job Description: ${jobDescription}
+
+Candidate Profile Skills: ${userSkills.join(', ')}
+Candidate Resume Text: ${resumeText || 'None provided'}
+
+Respond with ONLY a valid JSON object matching this schema:
+{
+  "match_score": number (0 to 100),
+  "matching_skills": string[],
+  "missing_skills": string[],
+  "recommendations": string[],
+  "resume_bullet_suggestions": string[],
+  "summary": string
+}`;
+
+      const result = await model.generateContent(prompt);
+      const text = result.response.text().trim();
+      const jsonStr = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      return JSON.parse(jsonStr) as AIMatchResult;
+    } catch (error) {
+      this.logger.error(`AI resume match failed: ${error instanceof Error ? error.message : error}`);
+      return this.mockMatch(jobTitle, jobDescription, jobSkills, userSkills, resumeText);
+    }
+  }
+
+  mockMatch(
+    jobTitle: string,
+    jobDescription: string,
+    jobSkills: string[],
+    userSkills: string[],
+    resumeText?: string
+  ): AIMatchResult {
+    const userSkillsLower = new Set(
+      userSkills.map((s) => s.toLowerCase().trim()).concat(
+        resumeText ? resumeText.toLowerCase().split(/\W+/).filter(Boolean) : []
+      )
+    );
+
+    const matching: string[] = [];
+    const missing: string[] = [];
+
+    const effectiveJobSkills = jobSkills.length > 0
+      ? jobSkills
+      : ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Docker'];
+
+    effectiveJobSkills.forEach((skill) => {
+      if (userSkillsLower.has(skill.toLowerCase().trim())) {
+        matching.push(skill);
+      } else {
+        missing.push(skill);
+      }
+    });
+
+    const total = matching.length + missing.length;
+    const baseScore = total > 0 ? Math.round((matching.length / total) * 100) : 75;
+    const match_score = Math.min(100, Math.max(35, baseScore + (userSkills.length > 3 ? 15 : 5)));
+
+    const recommendations: string[] = [];
+    if (missing.length > 0) {
+      recommendations.push(`Build a hands-on project incorporating ${missing.slice(0, 2).join(' and ')}.`);
+      recommendations.push(`Highlight any related experience with ${missing[0]} in your summary section.`);
+    } else {
+      recommendations.push('Your technical skill set is an exceptional match for this role!');
+    }
+    recommendations.push(`Tailor your top 3 bullet points to directly mention ${jobTitle} responsibilities.`);
+
+    const resume_bullet_suggestions = [
+      `Engineered robust features utilizing ${matching.slice(0, 2).join(' & ') || 'modern web stack'} to improve performance.`,
+      `Demonstrated capability in system design aligning with ${jobTitle} requirements.`,
+    ];
+
+    return {
+      match_score,
+      matching_skills: matching.length > 0 ? matching : ['Problem Solving', 'Communication'],
+      missing_skills: missing,
+      recommendations,
+      resume_bullet_suggestions,
+      summary: `Your profile demonstrates a ${match_score}% alignment with the ${jobTitle} position based on required tech stack and responsibilities.`,
+    };
+  }
+
   private mockExtract(content: string, authorName: string): ExtractedJob {
     const lowerContent = content.toLowerCase();
-
     const hiringKeywords = ['hiring', 'we are hiring', 'looking for', 'job opening', 'open position', 'join our team', 'urgent requirement', 'vacancy'];
     const isJobPost = hiringKeywords.some(k => lowerContent.includes(k));
 
-    // Try to extract job title
     const titleMatch = content.match(/(?:hiring|looking for|seeking|need)(?: a| an)?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\s+(?:developer|engineer|designer|manager|analyst)/i);
     const job_title = titleMatch ? titleMatch[0].replace(/hiring|looking for|seeking|need(?: a| an)?/i, '').trim() : null;
 
-    // Extract salary
     const salaryMatch = content.match(/(?:salary|ctc|pay|₹|rs\.?|inr)\s*:?\s*(\d+)(?:k|lpa|l)?(?:\s*[-–to]+\s*(\d+)(?:k|lpa|l)?)?/i);
     let salary_min: number | null = null;
     let salary_max: number | null = null;
@@ -108,17 +217,14 @@ Rules:
       salary_max = salaryMatch[2] ? parseInt(salaryMatch[2]) * (salaryMatch[2].length <= 3 ? 1000 : 1) : null;
     }
 
-    // Extract skills
     const commonSkills = ['react', 'node', 'python', 'java', 'javascript', 'typescript', 'aws', 'docker', 'sql', 'mongodb', 'nextjs', 'angular', 'vue', 'flutter', 'kotlin', 'swift', 'golang', 'rust', 'kubernetes'];
     const skills = commonSkills.filter(s => lowerContent.includes(s)).map(s => s.charAt(0).toUpperCase() + s.slice(1));
 
-    // Detect work mode
     let work_mode: ExtractedJob['work_mode'] = 'NOT_SPECIFIED';
     if (lowerContent.includes('remote')) work_mode = 'REMOTE';
     else if (lowerContent.includes('hybrid')) work_mode = 'HYBRID';
     else if (lowerContent.includes('onsite') || lowerContent.includes('on-site') || lowerContent.includes('office')) work_mode = 'ONSITE';
 
-    // Email extraction
     const emailMatch = content.match(/[\w.-]+@[\w.-]+\.\w{2,}/);
 
     return {
@@ -139,3 +245,4 @@ Rules:
     };
   }
 }
+
