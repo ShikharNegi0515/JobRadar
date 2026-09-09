@@ -8,6 +8,7 @@ import {
   ManyToMany,
   JoinTable,
   OneToMany,
+  type Relation,
 } from 'typeorm';
 import { Skill } from '../../skills/entities/skill.entity.js';
 import { SavedJob } from './saved-job.entity.js';
@@ -137,13 +138,13 @@ export class JobPost {
     joinColumn: { name: 'job_post_id', referencedColumnName: 'id' },
     inverseJoinColumn: { name: 'skill_id', referencedColumnName: 'id' },
   })
-  skills: Skill[];
+  skills: Relation<Skill>[];
 
   @OneToMany(() => SavedJob, (savedJob) => savedJob.jobPost)
-  savedBy: SavedJob[];
+  savedBy: Relation<SavedJob>[];
 
   @OneToMany(() => Application, (application) => application.jobPost)
-  applications: Application[];
+  applications: Relation<Application>[];
 
   @CreateDateColumn()
   created_at: Date;

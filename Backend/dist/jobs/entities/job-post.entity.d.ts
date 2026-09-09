@@ -1,3 +1,4 @@
+import { type Relation } from 'typeorm';
 import { Skill } from '../../skills/entities/skill.entity.js';
 import { SavedJob } from './saved-job.entity.js';
 import { Application } from '../../applications/entities/application.entity.js';
@@ -47,9 +48,9 @@ export declare class JobPost {
     classification_confidence: number;
     content_hash: string;
     status: JobStatus;
-    skills: Skill[];
-    savedBy: SavedJob[];
-    applications: Application[];
+    skills: Relation<Skill>[];
+    savedBy: Relation<SavedJob>[];
+    applications: Relation<Application>[];
     created_at: Date;
     updated_at: Date;
 }

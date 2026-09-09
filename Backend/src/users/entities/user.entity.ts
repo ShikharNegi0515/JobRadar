@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  type Relation,
 } from 'typeorm';
 import { SavedJob } from '../../jobs/entities/saved-job.entity.js';
 import { Application } from '../../applications/entities/application.entity.js';
@@ -25,13 +26,13 @@ export class User {
   password_hash: string;
 
   @OneToMany(() => SavedJob, (savedJob) => savedJob.user)
-  savedJobs: SavedJob[];
+  savedJobs: Relation<SavedJob>[];
 
   @OneToMany(() => Application, (application) => application.user)
-  applications: Application[];
+  applications: Relation<Application>[];
 
   @OneToMany(() => UserSkill, (userSkill) => userSkill.user)
-  skills: UserSkill[];
+  skills: Relation<UserSkill>[];
 
   @CreateDateColumn()
   created_at: Date;

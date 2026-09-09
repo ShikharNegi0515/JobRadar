@@ -6,6 +6,7 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  type Relation,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity.js';
 import { JobPost } from '../../jobs/entities/job-post.entity.js';
@@ -26,11 +27,11 @@ export class Application {
 
   @ManyToOne(() => User, (user) => user.applications, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @ManyToOne(() => JobPost, (jobPost) => jobPost.applications, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'job_post_id' })
-  jobPost: JobPost;
+  jobPost: Relation<JobPost>;
 
   @Column({ type: 'enum', enum: ApplicationStatus, default: ApplicationStatus.INTERESTED })
   status: ApplicationStatus;

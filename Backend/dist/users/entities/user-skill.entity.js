@@ -23,12 +23,12 @@ __decorate([
 __decorate([
     ManyToOne(() => User, (user) => user.skills, { onDelete: 'CASCADE' }),
     JoinColumn({ name: 'user_id' }),
-    __metadata("design:type", User)
+    __metadata("design:type", Object)
 ], UserSkill.prototype, "user", void 0);
 __decorate([
     ManyToOne(() => Skill, { onDelete: 'CASCADE' }),
     JoinColumn({ name: 'skill_id' }),
-    __metadata("design:type", Skill)
+    __metadata("design:type", Object)
 ], UserSkill.prototype, "skill", void 0);
 __decorate([
     Column({ type: 'int', default: 1 }),

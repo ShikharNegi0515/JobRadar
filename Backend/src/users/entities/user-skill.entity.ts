@@ -1,4 +1,4 @@
-import { Entity, ManyToOne, JoinColumn, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, ManyToOne, JoinColumn, Column, PrimaryGeneratedColumn, type Relation } from 'typeorm';
 import { User } from './user.entity.js';
 import { Skill } from '../../skills/entities/skill.entity.js';
 
@@ -9,11 +9,11 @@ export class UserSkill {
 
   @ManyToOne(() => User, (user) => user.skills, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user: User;
+  user: Relation<User>;
 
   @ManyToOne(() => Skill, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'skill_id' })
-  skill: Skill;
+  skill: Relation<Skill>;
 
   @Column({ type: 'int', default: 1 })
   proficiency: number;

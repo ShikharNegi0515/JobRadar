@@ -36,12 +36,12 @@ __decorate([
 __decorate([
     ManyToOne(() => User, (user) => user.applications, { onDelete: 'CASCADE' }),
     JoinColumn({ name: 'user_id' }),
-    __metadata("design:type", User)
+    __metadata("design:type", Object)
 ], Application.prototype, "user", void 0);
 __decorate([
     ManyToOne(() => JobPost, (jobPost) => jobPost.applications, { onDelete: 'CASCADE' }),
     JoinColumn({ name: 'job_post_id' }),
-    __metadata("design:type", JobPost)
+    __metadata("design:type", Object)
 ], Application.prototype, "jobPost", void 0);
 __decorate([
     Column({ type: 'enum', enum: ApplicationStatus, default: ApplicationStatus.INTERESTED }),
