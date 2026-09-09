@@ -1,9 +1,8 @@
-import { Controller, Post, Get, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, UseGuards, Body } from '@nestjs/common';
 import { IngestionService } from './ingestion.service.js';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard.js';
 
 @Controller('api/ingestion')
-@UseGuards(JwtAuthGuard)
 export class IngestionController {
   constructor(private readonly ingestionService: IngestionService) {}
 
@@ -11,8 +10,8 @@ export class IngestionController {
    * Manually trigger an ingestion run (for testing/admin)
    */
   @Post('trigger')
-  async triggerIngestion() {
-    const result = await this.ingestionService.runIngestion();
+  async triggerIngestion(@Body('keywords') keywords?: string[]) {
+    const result = await this.ingestionService.runIngestion(keywords);
     return {
       success: true,
       message: 'Ingestion completed',

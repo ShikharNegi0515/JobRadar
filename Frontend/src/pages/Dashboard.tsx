@@ -11,7 +11,10 @@ export default function Dashboard() {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<'recent' | 'popular'>('recent');
 
-  const { data, isLoading, error } = useQuery<PaginatedResponse<JobPost>>({
+  const [isIngesting, setIsIngesting] = useState(false);
+  const [ingestionMsg, setIngestionMsg] = useState<string | null>(null);
+
+  const { data, isLoading, error, refetch, isRefetching } = useQuery<PaginatedResponse<JobPost>>({
     queryKey: ['jobs', search, page, sort],
     queryFn: async () => {
       const res = await api.get('/jobs', {
@@ -30,7 +33,6 @@ export default function Dashboard() {
   const saveJob = async (id: string) => {
     try {
       await api.post(`/saved-jobs/${id}`);
-      // Toast notification would go here
     } catch (error) {
       console.error('Failed to save job', error);
     }
@@ -39,46 +41,99 @@ export default function Dashboard() {
   const trackApplication = async (id: string) => {
     try {
       await api.post('/applications', { jobPostId: id });
-      // Toast notification would go here
     } catch (error) {
       console.error('Failed to track application', error);
     }
   };
 
+  const handleTriggerIngestion = async () => {
+    setIsIngesting(true);
+    setIngestionMsg('Scraping live jobs from LinkedIn...');
+    try {
+      const res = await api.post('/ingestion/trigger');
+      const data = res.data?.data;
+      if (data) {
+        setIngestionMsg(`Ingestion complete! ${data.saved} new jobs saved, ${data.skipped} skipped.`);
+      } else {
+        setIngestionMsg('Ingestion triggered successfully!');
+      }
+      await refetch();
+    } catch (err) {
+      console.error('Ingestion failed:', err);
+      setIngestionMsg('Failed to trigger ingestion.');
+    } finally {
+      setIsIngesting(false);
+      setTimeout(() => setIngestionMsg(null), 6000);
+    }
+  };
+
   return (
     <div className="p-8 h-full flex flex-col">
-      <header className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Discover Opportunities</h1>
-        <p className="text-gray-400">Showing the most relevant jobs strictly from the <span className="text-indigo-400 font-semibold border-b border-indigo-500/50">last 24 hours</span>.</p>
+      <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Discover Opportunities</h1>
+          <p className="text-gray-400">
+            Showing the most relevant jobs strictly from the{' '}
+            <span className="text-indigo-400 font-semibold border-b border-indigo-500/50">last 24 hours</span>.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => refetch()}
+            disabled={isRefetching}
+            className="btn-secondary flex items-center gap-2 h-10 px-4 text-sm bg-[#111118] border border-[#2a2a3a] hover:border-indigo-500/40 text-gray-200"
+            title="Refresh jobs feed"
+          >
+            <span className={isRefetching ? 'animate-spin' : ''}>🔄</span>
+            {isRefetching ? 'Refreshing...' : 'Refresh Feed'}
+          </button>
+          <button
+            onClick={handleTriggerIngestion}
+            disabled={isIngesting}
+            className="btn-primary flex items-center gap-2 h-10 px-4 text-sm bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-600/30"
+          >
+            <Radar className={`h-4 w-4 ${isIngesting ? 'animate-spin' : ''}`} />
+            {isIngesting ? 'Scraping LinkedIn...' : 'Run Scraper Ingestion'}
+          </button>
+        </div>
       </header>
 
-      <div className="flex gap-4 mb-8">
-        <form onSubmit={handleSearch} className="flex-1 relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-500" />
-          </div>
+      {ingestionMsg && (
+        <div className="mb-6 p-3 px-4 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-sm flex items-center justify-between animate-fade-in">
+          <span>{ingestionMsg}</span>
+          <button onClick={() => setIngestionMsg(null)} className="text-indigo-400 hover:text-white font-bold ml-4">
+            ✕
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row gap-3 mb-8">
+        <form onSubmit={handleSearch} className="flex-1 relative flex items-center">
+          <Search className="absolute left-3.5 h-4 w-4 text-gray-400 pointer-events-none" />
           <input
             type="text"
-            className="input-field pl-10 h-12 text-base"
-            placeholder="Search by title, skill, or company..."
+            className="w-full bg-[#111118] border border-[#2a2a3a] focus:border-indigo-500 rounded-xl pl-10 pr-24 h-12 text-sm text-white placeholder-gray-500 focus:outline-none transition-all shadow-inner"
+            placeholder="Search by title, skill (e.g. react, python), or company..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
-          <button type="submit" className="absolute inset-y-2 right-2 btn-primary py-1 px-4 text-sm">
+          <button type="submit" className="absolute right-1.5 btn-primary py-1.5 px-4 text-xs font-semibold h-9 rounded-lg">
             Search
           </button>
         </form>
-        <button className="btn-secondary h-12 px-4 bg-[#111118]">
-          <Filter size={18} /> Filters
-        </button>
-        <select 
-          className="input-field w-40 h-12 cursor-pointer bg-[#111118]"
-          value={sort}
-          onChange={(e) => setSort(e.target.value as any)}
-        >
-          <option value="recent">Most Recent</option>
-          <option value="popular">Most Popular</option>
-        </select>
+        <div className="flex gap-2 shrink-0">
+          <button className="btn-secondary h-12 px-4 bg-[#111118] border-[#2a2a3a] text-xs font-medium flex items-center gap-1.5">
+            <Filter size={16} /> Filters
+          </button>
+          <select 
+            className="bg-[#111118] border border-[#2a2a3a] focus:border-indigo-500 rounded-xl px-3.5 h-12 text-xs font-medium text-gray-200 cursor-pointer outline-none transition-all"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as any)}
+          >
+            <option value="recent">Sort: Most Recent</option>
+            <option value="popular">Sort: Most Popular</option>
+          </select>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto pb-8 pr-2">

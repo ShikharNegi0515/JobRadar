@@ -23,9 +23,13 @@ export class LinkedInScraperService {
   async scrapeJobPosts(keywords: string[]): Promise<ScrapedPost[]> {
     const email = process.env.LINKEDIN_EMAIL;
     const password = process.env.LINKEDIN_PASSWORD;
+    const liAt = process.env.LINKEDIN_LI_AT;
+    const hasCookiesFile = fs.existsSync(this.cookiesPath);
 
-    if (!email || !password) {
-      this.logger.error('LINKEDIN_EMAIL and LINKEDIN_PASSWORD must be set in .env');
+    if (!liAt && !hasCookiesFile && (!email || !password)) {
+      this.logger.error(
+        'LinkedIn authentication missing! Provide LINKEDIN_LI_AT in .env, place linkedin-session.json, or set LINKEDIN_EMAIL and LINKEDIN_PASSWORD.',
+      );
       return [];
     }
 
@@ -33,7 +37,7 @@ export class LinkedInScraperService {
 
     try {
       browser = await chromium.launch({
-        headless: true,
+        headless: false,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -53,14 +57,15 @@ export class LinkedInScraperService {
 
       const loggedIn = await this.ensureLoggedIn(page, email, password);
       if (!loggedIn) {
-        this.logger.error('LinkedIn login failed — check credentials');
-        return [];
+        this.logger.warn('LinkedIn feed check redirected — continuing to search page directly...');
+      } else {
+        // Persist session only if authenticated session active
+        const cookies = await context.cookies();
+        if (cookies.length > 5) {
+          fs.writeFileSync(this.cookiesPath, JSON.stringify(cookies, null, 2));
+          this.logger.log(`Session saved with ${cookies.length} cookies`);
+        }
       }
-
-      // Persist session
-      const cookies = await context.cookies();
-      fs.writeFileSync(this.cookiesPath, JSON.stringify(cookies, null, 2));
-      this.logger.log(`Session saved with ${cookies.length} cookies`);
 
       const allPosts: ScrapedPost[] = [];
 
@@ -70,7 +75,7 @@ export class LinkedInScraperService {
           const posts = await this.scrapeKeyword(page, keyword);
           this.logger.log(`  → ${posts.length} posts found`);
           allPosts.push(...posts);
-          await this.sleep(randomBetween(4000, 8000));
+          await this.sleep(randomBetween(3000, 6000));
         } catch (err) {
           this.logger.error(`Error scraping "${keyword}": ${err instanceof Error ? err.message : err}`);
         }
@@ -88,7 +93,7 @@ export class LinkedInScraperService {
   private async buildContext(browser: Browser): Promise<BrowserContext> {
     const context = await browser.newContext({
       userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
       viewport: { width: 1280, height: 800 },
       locale: 'en-US',
       timezoneId: 'Asia/Kolkata',
@@ -97,39 +102,70 @@ export class LinkedInScraperService {
       },
     });
 
+    let hasLoadedFile = false;
     if (fs.existsSync(this.cookiesPath)) {
       try {
         const cookies = JSON.parse(fs.readFileSync(this.cookiesPath, 'utf-8'));
-        await context.addCookies(cookies);
-        this.logger.log('Loaded existing LinkedIn session cookies');
+        if (Array.isArray(cookies) && cookies.length > 5) {
+          await context.addCookies(cookies);
+          this.logger.log(`Loaded ${cookies.length} valid session cookies from linkedin-session.json`);
+          hasLoadedFile = true;
+        }
       } catch {
         this.logger.warn('Failed to load saved cookies — will log in fresh');
+      }
+    }
+
+    if (!hasLoadedFile && process.env.LINKEDIN_LI_AT) {
+      const liAtValue = process.env.LINKEDIN_LI_AT.trim();
+      if (liAtValue) {
+        await context.addCookies([
+          {
+            name: 'li_at',
+            value: liAtValue,
+            domain: '.linkedin.com',
+            path: '/',
+            secure: true,
+            httpOnly: true,
+            sameSite: 'Lax',
+          },
+        ]);
+        this.logger.log('Loaded single LinkedIn li_at cookie from environment');
       }
     }
 
     return context;
   }
 
-  private async ensureLoggedIn(page: Page, email: string, password: string): Promise<boolean> {
+  private async ensureLoggedIn(page: Page, email?: string, password?: string): Promise<boolean> {
     try {
-      await page.goto('https://www.linkedin.com/feed/', {
-        waitUntil: 'domcontentloaded',
-        timeout: 30_000,
-      });
+      try {
+        await page.goto('https://www.linkedin.com/feed/', {
+          waitUntil: 'domcontentloaded',
+          timeout: 10_000,
+        });
+      } catch (err) {
+        this.logger.warn(`Initial feed navigation warning: ${err instanceof Error ? err.message : err}`);
+      }
 
       await this.sleep(2000);
+      const url = page.url();
+      this.logger.log(`Page URL after initial navigation: ${url}`);
 
-      // Check if already authenticated
-      const feedExists = await page.$('.scaffold-layout, [data-test-id="nav-top"]');
-      if (feedExists) {
-        this.logger.log('Session is valid — already logged in');
+      if (url.includes('/feed') || url.includes('/home') || url.includes('/search') || url.includes('/in/')) {
+        this.logger.log('Session valid — authenticated feed page loaded');
         return true;
       }
 
-      this.logger.log('Session expired or missing — logging in...');
-      return await this.login(page, email, password);
-    } catch {
-      return await this.login(page, email, password);
+      if (url.includes('/login') || url.includes('/authwall') || url.includes('/checkpoint') || url.includes('/signup')) {
+        this.logger.warn('Session cookie redirected to auth page — will attempt search directly.');
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      this.logger.error(`ensureLoggedIn failed: ${err instanceof Error ? err.message : err}`);
+      return false;
     }
   }
 
@@ -168,95 +204,175 @@ export class LinkedInScraperService {
   }
 
   private async scrapeKeyword(page: Page, keyword: string): Promise<ScrapedPost[]> {
-    // LinkedIn search URL for posts from the last 24 hours
-    const url =
-      `https://www.linkedin.com/search/results/content/` +
-      `?keywords=${encodeURIComponent(keyword)}` +
-      `&datePosted=%22past-24h%22` +
-      `&origin=FACETED_SEARCH` +
-      `&sortBy=%22date_posted%22`;
+    const results: ScrapedPost[] = [];
 
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
-    await this.sleep(3000);
+    // Search URLs for both Latest & Top Match categories (past 24h)
+    const urls = [
+      `https://www.linkedin.com/search/results/content/?keywords=${encodeURIComponent(keyword)}&origin=FACETED_SEARCH&sortBy=%22date_posted%22&datePosted=%22past-24h%22`,
+      `https://www.linkedin.com/search/results/content/?keywords=${encodeURIComponent(keyword)}&origin=FACETED_SEARCH&sortBy=%22relevance%22&datePosted=%22past-24h%22`,
+    ];
 
-    // Scroll to load more results
-    for (let i = 0; i < 4; i++) {
-      await page.evaluate(() => window.scrollBy(0, window.innerHeight * 2));
-      await this.sleep(randomBetween(1500, 2500));
+    for (const url of urls) {
+      try {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25_000 });
+      } catch (err) {
+        this.logger.warn(`Navigation warning for "${keyword}": ${err instanceof Error ? err.message : err}`);
+      }
+
+      // Wait for URL to settle on search page
+      for (let i = 0; i < 6; i++) {
+        await this.sleep(800);
+        if (page.url().includes('/search/results/content/')) break;
+      }
+
+      await this.sleep(2000);
+
+      // Scroll down to load search results
+      for (let i = 0; i < 5; i++) {
+        await page.evaluate(() => {
+          window.scrollBy(0, window.innerHeight * 2.2);
+          const showMoreBtn = document.querySelector(
+            'button.scaffold-finite-scroll__load-button, button[aria-label*="See more"], button.reusable-search__result-container',
+          ) as HTMLButtonElement | null;
+          if (showMoreBtn) showMoreBtn.click();
+        }).catch(() => {});
+        await this.sleep(randomBetween(1000, 1800));
+      }
+
+      const categoryPosts = await page
+        .evaluate(() => {
+          const posts: any[] = [];
+          const seenTexts = new Set<string>();
+
+          const items = document.querySelectorAll(
+            'div[id*="FeedType_FLAGSHIP_SEARCH"], div[data-component-type="LazyColumn"] > div > div, .search-results__list > li, .reusable-search__result-container, .feed-shared-update-v2, .entity-result',
+          );
+
+          items.forEach((item) => {
+            try {
+              const rawText = item.textContent?.trim() || '';
+              if (rawText.length < 40) return;
+              if (
+                rawText.startsWith('Are these results helpful') ||
+                rawText.includes('Your feedback helps us improve')
+              ) {
+                return;
+              }
+
+              // 1. Author Info (Name & Profile URL)
+              const authorLink = item.querySelector(
+                'a[href*="/in/"], .app-aware-link[href*="/in/"]',
+              ) as HTMLAnchorElement | null;
+
+              const nameEl = item.querySelector(
+                '.update-components-actor__name span[aria-hidden="true"], .feed-shared-actor__name span[aria-hidden="true"], .entity-result__title-text a, .update-components-actor__name, .feed-shared-actor__name',
+              );
+
+              let authorName = nameEl?.textContent?.trim() || authorLink?.textContent?.trim() || '';
+              authorName = authorName
+                .replace(/View .*’s profile/i, '')
+                .replace(/•.*$/, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+              if (!authorName || authorName.length < 2) {
+                authorName = 'LinkedIn Member';
+              }
+
+              // 2. Post Content
+              const contentEl = item.querySelector(
+                '.feed-shared-update-v2__description, .update-components-text, .entity-result__content-summary, .break-words, span[dir="ltr"]',
+              );
+              let content = contentEl?.textContent?.trim() || rawText;
+              content = content
+                .replace(/^Feed post/i, '')
+                .replace(/•\s*\d+[mhdw]\s*•\s*(Follow|Connect|Join)/gi, '')
+                .trim();
+
+              const textKey = content.slice(0, 80);
+              if (seenTexts.has(textKey)) return;
+              seenTexts.add(textKey);
+
+              // 3. Direct Post URL Extraction (Point directly to LinkedIn post update)
+              let postUrl = '';
+              const urnAttr =
+                item.getAttribute('data-urn') ||
+                item.getAttribute('data-activity-urn') ||
+                item.getAttribute('data-id') ||
+                item.querySelector('[data-urn]')?.getAttribute('data-urn') ||
+                item.querySelector('[data-activity-urn]')?.getAttribute('data-activity-urn');
+
+              if (urnAttr && (urnAttr.includes('activity') || urnAttr.includes('ugcPost'))) {
+                const actId = urnAttr.replace(/.*(?:activity|ugcPost)[:_]/, '').replace(/\D/g, '');
+                if (actId) {
+                  postUrl = `https://www.linkedin.com/feed/update/urn:li:activity:${actId}/`;
+                }
+              }
+
+              if (!postUrl) {
+                const links = Array.from(item.querySelectorAll('a[href]')) as HTMLAnchorElement[];
+                for (const l of links) {
+                  const h = l.href || '';
+                  if (
+                    h.includes('/feed/update/') ||
+                    h.includes('/posts/') ||
+                    h.includes('urn:li:activity') ||
+                    h.includes('ugcPost') ||
+                    h.includes('highlightedUpdateUrn')
+                  ) {
+                    postUrl = h;
+                    break;
+                  }
+                }
+              }
+
+              if (!postUrl && authorLink?.href) {
+                postUrl = authorLink.href;
+              }
+
+              // Social counts
+              const likesText =
+                item.querySelector('[aria-label*="reaction"], .social-counts-reactions__count')?.textContent || '0';
+              const commentsText =
+                item.querySelector('[aria-label*="comment"], .social-counts-comments')?.textContent || '0';
+              const likes = parseInt(likesText.replace(/\D/g, '')) || 0;
+              const comments = parseInt(commentsText.replace(/\D/g, '')) || 0;
+
+              posts.push({
+                authorName,
+                authorProfileUrl: authorLink?.href || '',
+                content,
+                postUrl,
+                likes,
+                comments,
+              });
+            } catch {
+              // skip malformed
+            }
+          });
+
+          return posts;
+        })
+        .then((rawPosts) =>
+          rawPosts.map((p) => ({
+            sourcePostId: crypto
+              .createHash('md5')
+              .update(`${p.postUrl || p.content.slice(0, 80)}`)
+              .digest('hex'),
+            authorName: p.authorName,
+            authorProfileUrl: p.authorProfileUrl,
+            content: p.content,
+            postUrl: p.postUrl,
+            likes: p.likes,
+            comments: p.comments,
+            postedAt: new Date(),
+          })),
+        );
+
+      results.push(...categoryPosts);
     }
 
-    return page.evaluate(() => {
-      const posts: any[] = [];
-
-      // Target search result items
-      const items = document.querySelectorAll(
-        '.search-results__list > li, .reusable-search__result-container',
-      );
-
-      items.forEach((item) => {
-        try {
-          // Author info
-          const authorLink = item.querySelector(
-            'a[href*="/in/"], .app-aware-link[href*="/in/"]',
-          ) as HTMLAnchorElement | null;
-          const authorName =
-            item.querySelector(
-              '.entity-result__title-text, .update-components-actor__name, .feed-shared-actor__name',
-            )?.textContent?.trim() ||
-            authorLink?.textContent?.trim() ||
-            'Unknown';
-
-          // Post content
-          const contentEl = item.querySelector(
-            '.feed-shared-update-v2__description, .update-components-text, .entity-result__content-summary',
-          );
-          const content = contentEl?.textContent?.trim() || '';
-
-          // Post URL
-          const postLinkEl = item.querySelector(
-            'a[href*="activity"], a[href*="ugcPost"], a[href*="feed/update"]',
-          ) as HTMLAnchorElement | null;
-          const postUrl = postLinkEl?.href || '';
-
-          if (content.length < 50) return;
-
-          // Social counts
-          const likesText =
-            item.querySelector('[aria-label*="reaction"], .social-counts-reactions__count')?.textContent || '0';
-          const commentsText =
-            item.querySelector('[aria-label*="comment"], .social-counts-comments')?.textContent || '0';
-          const likes = parseInt(likesText.replace(/\D/g, '')) || 0;
-          const comments = parseInt(commentsText.replace(/\D/g, '')) || 0;
-
-          posts.push({
-            authorName,
-            authorProfileUrl: authorLink?.href || '',
-            content,
-            postUrl,
-            likes,
-            comments,
-          });
-        } catch {
-          // skip malformed items
-        }
-      });
-
-      return posts;
-    }).then((rawPosts) =>
-      rawPosts.map((p) => ({
-        sourcePostId: crypto
-          .createHash('md5')
-          .update(`${p.postUrl || p.content.slice(0, 80)}`)
-          .digest('hex'),
-        authorName: p.authorName,
-        authorProfileUrl: p.authorProfileUrl,
-        content: p.content,
-        postUrl: p.postUrl,
-        likes: p.likes,
-        comments: p.comments,
-        postedAt: new Date(),
-      })),
-    );
+    return results;
   }
 
   private deduplicate(posts: ScrapedPost[]): ScrapedPost[] {

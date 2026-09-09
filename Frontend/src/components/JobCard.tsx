@@ -29,19 +29,31 @@ export default function JobCard({ job, onSave, onApply, saved = false }: JobCard
   };
   
   const salary = formatSalary();
+  const directSourceUrl = job.source_url || job.application_url || job.author_profile_url;
 
   return (
     <>
       <div className="glass-card p-5 flex flex-col h-full fade-in relative group">
-        {/* 24h Badge */}
-        <div className="absolute -top-3 -right-2 bg-indigo-600 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-[0_0_10px_rgba(79,70,229,0.5)] z-10 border border-indigo-400">
-          NEW
+        {/* 24h & Source Badge */}
+        <div className="absolute -top-3 -right-2 flex gap-1.5 z-10">
+          <span className="bg-blue-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-400 shadow-sm">
+            LinkedIn
+          </span>
+          <span className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-indigo-400 shadow-[0_0_10px_rgba(79,70,229,0.5)]">
+            NEW
+          </span>
         </div>
 
         <div className="flex justify-between items-start mb-4">
           <div>
             <h3 className="text-lg font-bold text-white group-hover:text-indigo-400 transition-colors line-clamp-1">{job.job_title}</h3>
-            <p className="text-gray-400 text-sm font-medium">{job.company_name || job.author_name}</p>
+            <p className="text-gray-400 text-sm font-medium line-clamp-1">
+              {job.company_name && job.company_name !== 'LinkedIn User' && job.company_name !== 'LinkedIn Member'
+                ? job.company_name
+                : job.author_name && job.author_name !== 'LinkedIn User' && job.author_name !== 'LinkedIn Member'
+                ? job.author_name
+                : 'LinkedIn Recruiter'}
+            </p>
           </div>
           {onSave && (
             <button 
@@ -60,7 +72,7 @@ export default function JobCard({ job, onSave, onApply, saved = false }: JobCard
               <MapPin size={12} /> {job.location}
             </span>
           )}
-          {job.work_mode && (
+          {job.work_mode && job.work_mode !== 'NOT_SPECIFIED' && (
             <span className={`badge badge-${job.work_mode.toLowerCase()}`}>
               {job.work_mode}
             </span>
@@ -94,35 +106,36 @@ export default function JobCard({ job, onSave, onApply, saved = false }: JobCard
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-800">
-          <div className="flex items-center text-xs text-gray-500">
+        <div className="flex items-center justify-between mt-auto pt-4 border-t border-gray-800 gap-2">
+          <div className="flex items-center text-xs text-gray-500 whitespace-nowrap">
             <Clock size={12} className="mr-1" />
             {timeAgo}
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap justify-end">
             <button
               onClick={() => setShowAIMatch(true)}
-              className="btn-secondary px-2.5 py-1.5 text-xs text-indigo-400 hover:text-white hover:bg-indigo-600/30 border-indigo-500/30 flex items-center gap-1"
+              className="px-2 py-1 text-xs text-indigo-400 hover:text-white bg-indigo-500/10 hover:bg-indigo-600/30 border border-indigo-500/30 rounded-lg flex items-center gap-1 transition-all"
               title="AI Resume Matcher"
             >
-              <Sparkles size={14} className="text-indigo-400" /> Match
+              <Sparkles size={13} /> Match
             </button>
-            {job.source_url && (
+            {directSourceUrl ? (
               <a 
-                href={job.source_url} 
+                href={directSourceUrl} 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="btn-secondary px-3 py-1.5 text-xs"
+                className="px-2.5 py-1 text-xs text-sky-300 hover:text-white bg-sky-500/15 hover:bg-sky-500/30 border border-sky-500/30 rounded-lg flex items-center gap-1 font-medium transition-all"
+                title="View original LinkedIn post / profile"
               >
-                <ExternalLink size={14} className="mr-1" /> Source
+                <ExternalLink size={13} /> Source
               </a>
-            )}
+            ) : null}
             {onApply && (
               <button 
                 onClick={() => onApply(job.id)}
-                className="btn-primary px-3 py-1.5 text-xs bg-indigo-600 hover:bg-indigo-500 text-white border-none"
+                className="px-2.5 py-1 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg flex items-center gap-1 transition-all font-medium"
               >
-                <PlusCircle size={14} className="mr-1" /> Track
+                <PlusCircle size={13} /> Track
               </button>
             )}
           </div>

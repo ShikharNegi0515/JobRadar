@@ -42,7 +42,7 @@ export class IngestionService {
     await this.runIngestion();
   }
 
-  async runIngestion(): Promise<{ processed: number; saved: number; skipped: number }> {
+  async runIngestion(customKeywords?: string[]): Promise<{ processed: number; saved: number; skipped: number }> {
     if (this.isRunning) {
       this.logger.warn('Ingestion already in progress — skipping');
       return { processed: 0, saved: 0, skipped: 0 };
@@ -57,7 +57,8 @@ export class IngestionService {
 
     try {
       // Step 1: Scrape LinkedIn posts
-      const posts = await this.scraper.scrapeJobPosts(SEARCH_KEYWORDS);
+      const searchKeywords = customKeywords && customKeywords.length > 0 ? customKeywords : SEARCH_KEYWORDS;
+      const posts = await this.scraper.scrapeJobPosts(searchKeywords);
       this.logger.log(`📥 Scraped ${posts.length} raw posts from LinkedIn`);
 
       // Step 2: Process each post through AI

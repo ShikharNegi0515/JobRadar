@@ -9,12 +9,13 @@ export interface JobPost {
   source_post_id: string;
   source_url?: string;
   author_name?: string;
+  author_profile_url?: string;
   author_avatar_url?: string;
   job_title: string;
   company_name?: string;
   description?: string;
   location?: string;
-  work_mode?: 'REMOTE' | 'HYBRID' | 'ONSITE';
+  work_mode?: 'REMOTE' | 'HYBRID' | 'ONSITE' | 'NOT_SPECIFIED';
   employment_type?: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP' | 'FREELANCE';
   experience_min?: number;
   experience_max?: number;
