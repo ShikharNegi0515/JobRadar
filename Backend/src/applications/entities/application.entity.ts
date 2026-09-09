@@ -7,8 +7,8 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
-import { JobPost } from '../../jobs/entities/job-post.entity';
+import { User } from '../../users/entities/user.entity.js';
+import { JobPost } from '../../jobs/entities/job-post.entity.js';
 
 export enum ApplicationStatus {
   INTERESTED = 'INTERESTED',

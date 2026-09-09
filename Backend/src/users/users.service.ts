@@ -15,7 +15,7 @@ export class UsersService {
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.usersRepository.findOne({ where: { id }, relations: ['skills'] });
+    return this.usersRepository.findOne({ where: { id }, relations: { skills: { skill: true } } });
   }
 
   async create(userData: Partial<User>): Promise<User> {

@@ -6,9 +6,9 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { SavedJob } from '../../jobs/entities/saved-job.entity';
-import { Application } from '../../applications/entities/application.entity';
-import { UserSkill } from './user-skill.entity';
+import { SavedJob } from '../../jobs/entities/saved-job.entity.js';
+import { Application } from '../../applications/entities/application.entity.js';
+import { UserSkill } from './user-skill.entity.js';
 
 @Entity('users')
 export class User {

@@ -9,9 +9,9 @@ import {
   JoinTable,
   OneToMany,
 } from 'typeorm';
-import { Skill } from '../../skills/entities/skill.entity';
-import { SavedJob } from './saved-job.entity';
-import { Application } from '../../applications/entities/application.entity';
+import { Skill } from '../../skills/entities/skill.entity.js';
+import { SavedJob } from './saved-job.entity.js';
+import { Application } from '../../applications/entities/application.entity.js';
 
 export enum JobStatus {
   ACTIVE = 'ACTIVE',
