@@ -8,6 +8,20 @@ import { AIService } from '../ai/ai.service.js';
 import { JobPost, JobStatus, WorkMode, EmploymentType } from '../jobs/entities/job-post.entity.js';
 import { Skill } from '../skills/entities/skill.entity.js';
 
+// India location keywords — if a location is extracted and none of these match, post is skipped
+const INDIA_LOCATION_TERMS = [
+  'india', 'bangalore', 'bengaluru', 'mumbai', 'delhi', 'new delhi', 'ncr', 'hyderabad',
+  'pune', 'chennai', 'kolkata', 'noida', 'gurgaon', 'gurugram', 'ahmedabad', 'jaipur',
+  'chandigarh', 'kochi', 'coimbatore', 'indore', 'bhopal', 'nagpur', 'surat', 'vadodara',
+  'remote', 'work from home', 'wfh', 'pan india', 'across india', 'any location india',
+];
+
+function isIndiaLocation(location: string | null): boolean {
+  if (!location) return true; // no location specified => include it
+  const lower = location.toLowerCase();
+  return INDIA_LOCATION_TERMS.some(term => lower.includes(term));
+}
+
 const SEARCH_KEYWORDS = [
   'we are hiring software developer',
   'hiring react developer',
@@ -42,7 +56,10 @@ export class IngestionService {
     await this.runIngestion();
   }
 
-  async runIngestion(customKeywords?: string[]): Promise<{ processed: number; saved: number; skipped: number }> {
+  async runIngestion(
+    customKeywords?: string[],
+    resumeText?: string,
+  ): Promise<{ processed: number; saved: number; skipped: number; resumeParsed?: boolean }> {
     if (this.isRunning) {
       this.logger.warn('Ingestion already in progress — skipping');
       return { processed: 0, saved: 0, skipped: 0 };
@@ -54,10 +71,29 @@ export class IngestionService {
     let saved = 0;
     let skipped = 0;
     let processed = 0;
+    let resumeParsed = false;
 
     try {
+      // Determine search keywords
+      let searchKeywords = customKeywords && customKeywords.length > 0 ? customKeywords : SEARCH_KEYWORDS;
+
+      // If resumeText is provided, parse it and use resume-driven keywords
+      if (resumeText && resumeText.trim().length > 50) {
+        try {
+          this.logger.log('📄 Parsing resume to extract personalized search keywords...');
+          const parsed = await this.ai.parseResume(resumeText);
+          if (parsed.search_keywords && parsed.search_keywords.length > 0) {
+            searchKeywords = parsed.search_keywords;
+            resumeParsed = true;
+            this.logger.log(`✅ Resume parsed for: ${parsed.name || 'candidate'} — ${parsed.roles.join(', ')}`);
+            this.logger.log(`🔍 Using ${searchKeywords.length} resume-driven keywords: ${searchKeywords.join(' | ')}`);
+          }
+        } catch (err) {
+          this.logger.warn(`Resume parsing failed, falling back to default keywords: ${err}`);
+        }
+      }
+
       // Step 1: Scrape LinkedIn posts
-      const searchKeywords = customKeywords && customKeywords.length > 0 ? customKeywords : SEARCH_KEYWORDS;
       const posts = await this.scraper.scrapeJobPosts(searchKeywords);
       this.logger.log(`📥 Scraped ${posts.length} raw posts from LinkedIn`);
 
@@ -81,6 +117,13 @@ export class IngestionService {
             !extracted.is_job_post ||
             extracted.confidence < (parseFloat(process.env.JOB_CLASSIFICATION_THRESHOLD || '0.65'))
           ) {
+            skipped++;
+            continue;
+          }
+
+          // Filter out non-India locations
+          if (!isIndiaLocation(extracted.location)) {
+            this.logger.log(`⏩ Skipping non-India job: "${extracted.job_title}" (location: ${extracted.location})`);
             skipped++;
             continue;
           }
@@ -148,7 +191,7 @@ export class IngestionService {
     this.logger.log(
       `📊 Ingestion done — processed: ${processed}, saved: ${saved}, skipped: ${skipped}`,
     );
-    return { processed, saved, skipped };
+    return { processed, saved, skipped, resumeParsed };
   }
 
   /**

@@ -27,6 +27,16 @@ export interface AIMatchResult {
   summary: string;
 }
 
+export interface ParsedResume {
+  name: string | null;
+  skills: string[];
+  experience_level: 'fresher' | 'junior' | 'mid' | 'senior' | 'lead';
+  years_of_experience: number | null;
+  roles: string[];  // e.g. ["React Developer", "Frontend Engineer"]
+  search_keywords: string[]; // LinkedIn search queries to find relevant India jobs
+  summary: string;
+}
+
 export interface SkillGapItem {
   skill: string;
   demand_count: number;
@@ -55,7 +65,9 @@ export class AIService {
     }
 
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      // Try gemini-2.5-flash or gemini-2.0-flash
+      const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+      const model = this.genAI.getGenerativeModel({ model: modelName });
 
       const prompt = `You are a job post classifier and extractor. Analyze this LinkedIn post and determine if it contains a genuine job opportunity or hiring announcement.
 
@@ -96,9 +108,80 @@ Rules:
       const jsonStr = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       return JSON.parse(jsonStr) as ExtractedJob;
     } catch (error) {
-      this.logger.error(`AI extraction failed: ${error instanceof Error ? error.message : error}`);
-      return null;
+      this.logger.warn(`AI extraction warning: ${error instanceof Error ? error.message : error}. Falling back to rule-based extractor.`);
+      return this.mockExtract(postContent, authorName);
     }
+  }
+
+  async parseResume(resumeText: string): Promise<ParsedResume> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || apiKey === 'your_gemini_api_key_here') {
+      return this.mockParseResume(resumeText);
+    }
+
+    try {
+      const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+      const model = this.genAI.getGenerativeModel({ model: modelName });
+
+      const prompt = `You are an expert resume parser for the Indian job market. Analyze this resume and extract key information.
+
+Resume Text:
+"""
+${resumeText.slice(0, 6000)}
+"""
+
+Respond with ONLY a valid JSON object (no markdown, no explanation):
+{
+  "name": string or null,
+  "skills": string[] (technical skills only, e.g. React, Node.js, Python, AWS),
+  "experience_level": "fresher" | "junior" | "mid" | "senior" | "lead",
+  "years_of_experience": number or null,
+  "roles": string[] (2-5 job roles this person is suited for, e.g. "React Developer", "Frontend Engineer"),
+  "search_keywords": string[] (4-8 LinkedIn search queries to find matching jobs in India, e.g. "hiring react developer india", "frontend engineer opening bangalore"),
+  "summary": string (1-2 sentence summary of the candidate's profile)
+}
+
+IMPORTANT:
+- search_keywords must be optimized for LinkedIn post search in India
+- Include city names like bangalore, mumbai, delhi, pune, hyderabad in some keywords
+- Mix seniority levels (fresher, junior, senior) based on experience
+- Focus ONLY on what the candidate can actually do based on their resume`;
+
+      const result = await model.generateContent(prompt);
+      const text = result.response.text().trim();
+      const jsonStr = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      return JSON.parse(jsonStr) as ParsedResume;
+    } catch (error) {
+      this.logger.error(`Resume parsing failed: ${error instanceof Error ? error.message : error}`);
+      return this.mockParseResume(resumeText);
+    }
+  }
+
+  private mockParseResume(resumeText: string): ParsedResume {
+    const lower = resumeText.toLowerCase();
+    const skills: string[] = [];
+    const allSkills = ['react', 'node.js', 'python', 'java', 'typescript', 'javascript', 'aws', 'docker', 'mongodb', 'postgresql', 'nextjs', 'angular', 'vue', 'flutter', 'golang', 'kubernetes', 'redis', 'graphql', 'django', 'spring'];
+    allSkills.forEach(s => { if (lower.includes(s)) skills.push(s.charAt(0).toUpperCase() + s.slice(1)); });
+
+    const yearsMatch = lower.match(/(\d+)\+?\s*years?/i);
+    const years = yearsMatch ? parseInt(yearsMatch[1]) : null;
+    const level = !years || years < 1 ? 'fresher' : years < 3 ? 'junior' : years < 6 ? 'mid' : years < 10 ? 'senior' : 'lead';
+
+    const topSkills = skills.slice(0, 3).join(', ') || 'software developer';
+    return {
+      name: null,
+      skills,
+      experience_level: level,
+      years_of_experience: years,
+      roles: [`${skills[0] || 'Software'} Developer`, 'Software Engineer'],
+      search_keywords: [
+        `hiring ${topSkills.toLowerCase().split(',')[0].trim()} developer india`,
+        `${level} ${topSkills.toLowerCase().split(',')[0].trim()} developer opening`,
+        'software engineer hiring india',
+        `we are hiring ${topSkills.toLowerCase().split(',')[0].trim()} bangalore`,
+      ],
+      summary: `Candidate with ${years ? years + ' years' : 'some'} of experience in ${topSkills}.`,
+    };
   }
 
   async analyzeResumeMatch(
@@ -114,7 +197,8 @@ Rules:
     }
 
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+      const model = this.genAI.getGenerativeModel({ model: modelName });
 
       const prompt = `You are an expert AI Resume Matcher and Career Coach. Analyze candidate's resume/skills against a job role.
 

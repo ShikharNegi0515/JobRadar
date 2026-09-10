@@ -1,5 +1,5 @@
 import { Controller, Post, Get, Body, BadRequestException } from '@nestjs/common';
-import { AIService, AIMatchResult } from './ai.service.js';
+import { AIService, AIMatchResult, ParsedResume } from './ai.service.js';
 import { JobsService } from '../jobs/jobs.service.js';
 
 export class MatchJobDto {
@@ -49,6 +49,17 @@ export class AIController {
       success: true,
       data: result,
     };
+  }
+
+  @Post('parse-resume')
+  async parseResume(
+    @Body('resumeText') resumeText: string,
+  ): Promise<{ success: boolean; data: ParsedResume }> {
+    if (!resumeText || resumeText.trim().length < 50) {
+      throw new BadRequestException('resumeText must be at least 50 characters');
+    }
+    const result = await this.aiService.parseResume(resumeText);
+    return { success: true, data: result };
   }
 
   @Get('skill-gaps')

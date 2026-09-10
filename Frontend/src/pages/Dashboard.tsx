@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../api/api';
 import JobCard from '../components/JobCard';
+import ResumeModal from '../components/ResumeModal';
 import type { JobPost, PaginatedResponse } from '../types';
-import { Search, Filter, Radar } from 'lucide-react';
+import { Search, Filter, Radar, FileText } from 'lucide-react';
 
 export default function Dashboard() {
   const [search, setSearch] = useState('');
@@ -11,6 +12,7 @@ export default function Dashboard() {
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<'recent' | 'popular'>('recent');
 
+  const [showResumeModal, setShowResumeModal] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
   const [ingestionMsg, setIngestionMsg] = useState<string | null>(null);
 
@@ -46,24 +48,27 @@ export default function Dashboard() {
     }
   };
 
-  const handleTriggerIngestion = async () => {
+  const handleIngestionStart = async (resumeText: string, parsedData: { name: string | null; roles: string[]; search_keywords: string[] }) => {
     setIsIngesting(true);
-    setIngestionMsg('Scraping live jobs from LinkedIn...');
+    const name = parsedData.name || 'you';
+    setIngestionMsg(`🤖 Searching LinkedIn for ${parsedData.roles.slice(0, 2).join(' & ')} roles in India...`);
     try {
-      const res = await api.post('/ingestion/trigger');
+      const res = await api.post('/ingestion/trigger', { resumeText });
       const data = res.data?.data;
       if (data) {
-        setIngestionMsg(`Ingestion complete! ${data.saved} new jobs saved, ${data.skipped} skipped.`);
+        setIngestionMsg(`✅ Done! Found ${data.saved} new jobs personalized for ${name}. ${data.skipped} skipped (non-India or not relevant).`);
       } else {
-        setIngestionMsg('Ingestion triggered successfully!');
+        setIngestionMsg('✅ Personalized ingestion complete!');
       }
       await refetch();
+      setShowResumeModal(false);
     } catch (err) {
       console.error('Ingestion failed:', err);
-      setIngestionMsg('Failed to trigger ingestion.');
+      setIngestionMsg('❌ Scraping failed. Please try again.');
+      setShowResumeModal(false);
     } finally {
       setIsIngesting(false);
-      setTimeout(() => setIngestionMsg(null), 6000);
+      setTimeout(() => setIngestionMsg(null), 8000);
     }
   };
 
@@ -74,7 +79,9 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-white mb-2">Discover Opportunities</h1>
           <p className="text-gray-400">
             Showing the most relevant jobs strictly from the{' '}
-            <span className="text-indigo-400 font-semibold border-b border-indigo-500/50">last 24 hours</span>.
+            <span className="text-indigo-400 font-semibold border-b border-indigo-500/50">last 24 hours</span>
+            {' '}—{' '}
+            <span className="text-emerald-400 font-semibold">India only</span>.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -85,15 +92,15 @@ export default function Dashboard() {
             title="Refresh jobs feed"
           >
             <span className={isRefetching ? 'animate-spin' : ''}>🔄</span>
-            {isRefetching ? 'Refreshing...' : 'Refresh Feed'}
+            {isRefetching ? 'Refreshing...' : 'Refresh'}
           </button>
           <button
-            onClick={handleTriggerIngestion}
+            onClick={() => setShowResumeModal(true)}
             disabled={isIngesting}
-            className="btn-primary flex items-center gap-2 h-10 px-4 text-sm bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-600/30"
+            className="btn-primary flex items-center gap-2 h-10 px-4 text-sm bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-medium shadow-lg shadow-indigo-600/30 rounded-xl border-0"
           >
-            <Radar className={`h-4 w-4 ${isIngesting ? 'animate-spin' : ''}`} />
-            {isIngesting ? 'Scraping LinkedIn...' : 'Run Scraper Ingestion'}
+            <FileText className={`h-4 w-4 ${isIngesting ? 'animate-pulse' : ''}`} />
+            {isIngesting ? 'Scraping...' : 'Smart Search by Resume'}
           </button>
         </div>
       </header>
@@ -151,7 +158,13 @@ export default function Dashboard() {
           <div className="text-center py-20 bg-[#111118] rounded-xl border border-[#2a2a3a]">
             <Radar className="mx-auto h-16 w-16 text-gray-600 mb-4" />
             <h3 className="text-xl font-medium text-white mb-2">No active jobs found</h3>
-            <p className="text-gray-400">Try adjusting your search criteria or check back later.</p>
+            <p className="text-gray-400 mb-6">Try adjusting your search or run a personalized scrape.</p>
+            <button
+              onClick={() => setShowResumeModal(true)}
+              className="px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-semibold text-sm flex items-center gap-2 mx-auto transition-all shadow-lg shadow-indigo-600/25"
+            >
+              <FileText size={16} /> Smart Search by Resume
+            </button>
           </div>
         ) : (
           <>
@@ -191,6 +204,14 @@ export default function Dashboard() {
           </>
         )}
       </div>
+
+      {showResumeModal && (
+        <ResumeModal
+          onClose={() => setShowResumeModal(false)}
+          onIngestionStart={handleIngestionStart}
+        />
+      )}
     </div>
   );
 }
+
