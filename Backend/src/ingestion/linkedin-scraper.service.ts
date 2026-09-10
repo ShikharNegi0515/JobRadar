@@ -250,7 +250,7 @@ export class LinkedInScraperService {
 
           items.forEach((item) => {
             try {
-              const rawText = item.textContent?.trim() || '';
+              const rawText = (item as HTMLElement).innerText?.trim() || '';
               if (rawText.length < 40) return;
               if (
                 rawText.startsWith('Are these results helpful') ||
@@ -268,7 +268,7 @@ export class LinkedInScraperService {
                 '.update-components-actor__name span[aria-hidden="true"], .feed-shared-actor__name span[aria-hidden="true"], .entity-result__title-text a, .update-components-actor__name, .feed-shared-actor__name',
               );
 
-              let authorName = nameEl?.textContent?.trim() || authorLink?.textContent?.trim() || '';
+              let authorName = (nameEl as HTMLElement)?.innerText?.trim() || authorLink?.innerText?.trim() || '';
               authorName = authorName
                 .replace(/View .*’s profile/i, '')
                 .replace(/•.*$/, '')
@@ -279,11 +279,11 @@ export class LinkedInScraperService {
                 authorName = 'LinkedIn Member';
               }
 
-              // 2. Post Content
+              // 2. Post Content (use innerText to preserve newlines)
               const contentEl = item.querySelector(
                 '.feed-shared-update-v2__description, .update-components-text, .entity-result__content-summary, .break-words, span[dir="ltr"]',
               );
-              let content = contentEl?.textContent?.trim() || rawText;
+              let content = (contentEl as HTMLElement)?.innerText?.trim() || rawText;
               content = content
                 .replace(/^Feed post/i, '')
                 .replace(/•\s*\d+[mhdw]\s*•\s*(Follow|Connect|Join)/gi, '')
@@ -326,15 +326,13 @@ export class LinkedInScraperService {
                 }
               }
 
-              if (!postUrl && authorLink?.href) {
-                postUrl = authorLink.href;
-              }
+              // Removed misleading fallback to author profile
 
               // Social counts
               const likesText =
-                item.querySelector('[aria-label*="reaction"], .social-counts-reactions__count')?.textContent || '0';
+                (item.querySelector('[aria-label*="reaction"], .social-counts-reactions__count') as HTMLElement)?.innerText || '0';
               const commentsText =
-                item.querySelector('[aria-label*="comment"], .social-counts-comments')?.textContent || '0';
+                (item.querySelector('[aria-label*="comment"], .social-counts-comments') as HTMLElement)?.innerText || '0';
               const likes = parseInt(likesText.replace(/\D/g, '')) || 0;
               const comments = parseInt(commentsText.replace(/\D/g, '')) || 0;
 

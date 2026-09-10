@@ -14,6 +14,7 @@ export interface JobPost {
   job_title: string;
   company_name?: string;
   description?: string;
+  raw_content?: string;
   location?: string;
   work_mode?: 'REMOTE' | 'HYBRID' | 'ONSITE' | 'NOT_SPECIFIED';
   employment_type?: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'INTERNSHIP' | 'FREELANCE';
@@ -25,6 +26,8 @@ export interface JobPost {
   application_url?: string;
   application_email?: string;
   posted_at: string;
+  likes?: number;
+  comments?: number;
   popularity_score: number;
   skills: Skill[];
   status: 'ACTIVE' | 'EXPIRED' | 'FLAGGED';
