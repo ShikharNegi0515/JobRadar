@@ -128,6 +128,13 @@ export class IngestionService {
             continue;
           }
 
+          // Filter out jobs requiring more than 2 years of experience
+          if (extracted.experience_min !== null && extracted.experience_min > 2) {
+            this.logger.log(`⏩ Skipping job due to experience requirements: "${extracted.job_title}" (min experience: ${extracted.experience_min} years)`);
+            skipped++;
+            continue;
+          }
+
           // Resolve skills (find or create)
           const skills: Skill[] = [];
           for (const skillName of (extracted.skills || []).slice(0, 10)) {
@@ -161,6 +168,8 @@ export class IngestionService {
           jobPost.salary_min = extracted.salary_min ?? null;
           jobPost.salary_max = extracted.salary_max ?? null;
           jobPost.salary_currency = extracted.salary_currency ?? null;
+          jobPost.experience_min = extracted.experience_min ?? null;
+          jobPost.experience_max = extracted.experience_max ?? null;
           jobPost.application_email = extracted.application_email ?? null;
           jobPost.application_url = extracted.application_url || post.postUrl || '';
           jobPost.posted_at = post.postedAt;

@@ -72,7 +72,12 @@ export class LinkedInScraperService {
       for (const keyword of keywords) {
         this.logger.log(`Scraping keyword: "${keyword}"`);
         try {
-          const posts = await this.scrapeKeyword(page, keyword);
+          let posts: ScrapedPost[] = [];
+          if (keyword.startsWith('https://www.linkedin.com/feed/update/')) {
+            posts = await this.scrapeSinglePost(page, keyword);
+          } else {
+            posts = await this.scrapeKeyword(page, keyword);
+          }
           this.logger.log(`  → ${posts.length} posts found`);
           allPosts.push(...posts);
           await this.sleep(randomBetween(3000, 6000));
@@ -200,6 +205,61 @@ export class LinkedInScraperService {
     } catch (err) {
       this.logger.error(`Login error: ${err instanceof Error ? err.message : err}`);
       return false;
+    }
+  }
+
+  private async scrapeSinglePost(page: Page, url: string): Promise<ScrapedPost[]> {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25_000 });
+      await this.sleep(3000);
+      
+      const post = await page.evaluate((postUrl) => {
+        const item = document.querySelector('.feed-shared-update-v2, .core-rail > div:first-child') as HTMLElement;
+        if (!item) return null;
+
+        const nameEl = item.querySelector('.update-components-actor__name span[aria-hidden="true"], .feed-shared-actor__name span[aria-hidden="true"], .update-components-actor__name');
+        let authorName = (nameEl as HTMLElement)?.innerText?.trim() || 'LinkedIn Member';
+        authorName = authorName.replace(/View .*’s profile/i, '').replace(/•.*$/, '').replace(/\s+/g, ' ').trim();
+
+        const authorLink = item.querySelector('a[href*="/in/"], .app-aware-link[href*="/in/"]') as HTMLAnchorElement | null;
+        
+        const contentEl = item.querySelector('.feed-shared-update-v2__description, .update-components-text, .break-words, span[dir="ltr"]');
+        let content = (contentEl as HTMLElement)?.innerText?.trim() || '';
+        content = content.replace(/^Feed post/i, '').replace(/•\s*\d+[mhdw]\s*•\s*(Follow|Connect|Join)/gi, '').trim();
+
+        if (!content) return null;
+
+        const likesText = (item.querySelector('[aria-label*="reaction"], .social-counts-reactions__count') as HTMLElement)?.innerText || '0';
+        const commentsText = (item.querySelector('[aria-label*="comment"], .social-counts-comments') as HTMLElement)?.innerText || '0';
+        const likes = parseInt(likesText.replace(/\D/g, '')) || 0;
+        const comments = parseInt(commentsText.replace(/\D/g, '')) || 0;
+
+        return {
+          authorName,
+          authorProfileUrl: authorLink?.href || '',
+          content,
+          postUrl,
+          likes,
+          comments,
+        };
+      }, url);
+
+      if (post) {
+        let sourcePostId = url.replace(/.*(?:activity|ugcPost)[:_]/, '').replace(/\D/g, '');
+        if (!sourcePostId) {
+          sourcePostId = crypto.createHash('md5').update(url).digest('hex');
+        }
+        
+        return [{
+          sourcePostId,
+          ...post,
+          postedAt: new Date()
+        }];
+      }
+      return [];
+    } catch (err) {
+      this.logger.warn(`Failed to scrape single post: ${err}`);
+      return [];
     }
   }
 

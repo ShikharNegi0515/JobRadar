@@ -12,6 +12,8 @@ export interface ExtractedJob {
   salary_min: number | null;
   salary_max: number | null;
   salary_currency: string | null;
+  experience_min: number | null;
+  experience_max: number | null;
   description: string | null;
   skills: string[];
   application_url: string | null;
@@ -88,6 +90,8 @@ Respond with ONLY a valid JSON object (no markdown, no explanation, no code bloc
   "salary_min": number or null,
   "salary_max": number or null,
   "salary_currency": "INR" or "USD" or "GBP" or "EUR" or null,
+  "experience_min": number or null (minimum years of experience required),
+  "experience_max": number or null (maximum years of experience allowed/mentioned),
   "description": string or null,
   "skills": array of strings,
   "application_url": string or null,
@@ -98,6 +102,7 @@ Rules:
 - is_job_post = true ONLY if someone is actively recruiting/hiring for a real role
 - confidence is between 0 and 1
 - Extract salary ONLY if explicitly mentioned (convert to numbers, e.g. "20k" = 20000)
+- Extract experience_min and experience_max in years (e.g. "0-2 years" -> min: 0, max: 2, "2+ years" -> min: 2, max: null)
 - skills = technical skills only (React, Python, AWS etc.)
 - description = clean 1-2 sentence summary of the role
 - If not a job post, still return valid JSON with is_job_post: false and confidence < 0.5`;
@@ -311,6 +316,20 @@ Respond with ONLY a valid JSON object matching this schema:
 
     const emailMatch = content.match(/[\w.-]+@[\w.-]+\.\w{2,}/);
 
+    const expMatch = content.match(/(\d+)(?:\s*[-–to]+\s*(\d+))?\s*(?:years?|yrs?)(?:\s*of\s*experience)?/i);
+    let experience_min: number | null = null;
+    let experience_max: number | null = null;
+    
+    if (expMatch) {
+      experience_min = parseInt(expMatch[1]);
+      if (expMatch[2]) {
+        experience_max = parseInt(expMatch[2]);
+      }
+    } else if (content.toLowerCase().includes('fresher') || content.toLowerCase().includes('0 years')) {
+      experience_min = 0;
+      experience_max = 1;
+    }
+
     return {
       is_job_post: isJobPost,
       confidence: isJobPost ? 0.80 : 0.20,
@@ -322,6 +341,8 @@ Respond with ONLY a valid JSON object matching this schema:
       salary_min,
       salary_max,
       salary_currency: salary_min ? 'INR' : null,
+      experience_min,
+      experience_max,
       description: isJobPost ? content.slice(0, 300) : null,
       skills,
       application_url: null,
