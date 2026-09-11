@@ -25,6 +25,7 @@ const workModeColors: Record<string, string> = {
 export default function JobCard({ job, onSave, onApply, saved = false }: JobCardProps) {
   const [showAIMatch, setShowAIMatch] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
+  const [isOpened, setIsOpened] = useState(false);
 
   const timeAgo = formatDistanceToNow(new Date(job.posted_at), { addSuffix: true });
 
@@ -59,10 +60,18 @@ export default function JobCard({ job, onSave, onApply, saved = false }: JobCard
     <>
       {/* ── Card ── */}
       <div
-        onClick={() => setShowDrawer(true)}
-        className="relative flex flex-col bg-[#13131d] border border-[#22223a] rounded-2xl overflow-hidden cursor-pointer group fade-in
-          hover:border-indigo-500/50 hover:shadow-[0_0_28px_rgba(99,102,241,0.12)] transition-all duration-200 hover:-translate-y-0.5"
+        onClick={() => { setShowDrawer(true); setIsOpened(true); }}
+        className={`relative flex flex-col border rounded-2xl overflow-hidden cursor-pointer group fade-in transition-all duration-300 ${
+          isOpened
+            ? 'bg-[#0c0c12] border-[#1a1a28] opacity-55 saturate-[0.3]'
+            : 'bg-[#13131d] border-[#22223a] hover:border-indigo-500/50 hover:shadow-[0_0_28px_rgba(99,102,241,0.12)] hover:-translate-y-0.5'
+        }`}
       >
+        {/* Opened: left accent bar */}
+        {isOpened && (
+          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-gray-500 to-gray-700 z-20" />
+        )}
+
         {/* Top gradient line */}
         <div
           className="h-[3px] w-full shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
@@ -71,13 +80,30 @@ export default function JobCard({ job, onSave, onApply, saved = false }: JobCard
 
         {/* Badges (top-right) */}
         <div className="absolute top-3 right-3 flex gap-1.5 z-10">
-          <span className="bg-blue-600/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-blue-400/50 backdrop-blur-sm">
-            LI
-          </span>
-          <span className="bg-indigo-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-indigo-400/50 shadow-[0_0_8px_rgba(99,102,241,0.5)]">
-            NEW
-          </span>
+          {isOpened ? (
+            <span className="flex items-center gap-1 bg-gray-700/90 text-gray-300 text-[9px] font-bold px-2.5 py-1 rounded-full border border-gray-500/60 backdrop-blur-sm tracking-wider">
+              ✓ VIEWED
+            </span>
+          ) : (
+            <>
+              <span className="bg-blue-600/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-blue-400/50 backdrop-blur-sm">
+                LI
+              </span>
+              <span className="bg-indigo-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-indigo-400/50 shadow-[0_0_8px_rgba(99,102,241,0.5)]">
+                NEW
+              </span>
+            </>
+          )}
         </div>
+
+        {/* Not-opened: LI badge always visible */}
+        {isOpened && (
+          <div className="absolute top-3 right-20 z-10">
+            <span className="bg-blue-600/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-blue-400/30 backdrop-blur-sm">
+              LI
+            </span>
+          </div>
+        )}
 
         <div className="flex flex-col flex-1 p-5">
           {/* Company row */}
@@ -89,7 +115,7 @@ export default function JobCard({ job, onSave, onApply, saved = false }: JobCard
               {avatarLetter}
             </div>
             <div className="min-w-0">
-              <h3 className="text-[15px] font-bold text-white group-hover:text-indigo-300 transition-colors leading-tight line-clamp-1">
+              <h3 className={`text-[15px] font-bold leading-tight line-clamp-1 transition-colors ${isOpened ? 'text-gray-500' : 'text-white group-hover:text-indigo-300'}`}>
                 {job.job_title}
               </h3>
               <p className="text-gray-500 text-xs font-medium flex items-center gap-1 mt-0.5 line-clamp-1">

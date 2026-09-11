@@ -5,13 +5,14 @@ import { JobPost, JobStatus } from './entities/job-post.entity.js';
 
 export interface JobQueryOptions {
   search?: string;
-  sort?: 'recent' | 'popular';
+  sort?: 'recent' | 'popular' | 'most_score';
   location?: string;
   workMode?: string;
   employmentType?: string;
   experienceMin?: number;
   experienceMax?: number;
   skills?: string;
+  userSkills?: string[];
   page?: number;
   limit?: number;
 }
@@ -33,6 +34,7 @@ export class JobsService {
       experienceMin,
       experienceMax,
       skills,
+      userSkills,
       page = 1,
       limit = 20,
     } = options;
@@ -45,7 +47,8 @@ export class JobsService {
       .leftJoinAndSelect('job.skills', 'skill')
       // ⭐ THE CORE 24-HOUR RULE — Always enforced server-side
       .where('job.posted_at >= NOW() - INTERVAL \'24 hours\'')
-      .andWhere('job.status = :status', { status: JobStatus.ACTIVE });
+      .andWhere('job.status = :status', { status: JobStatus.ACTIVE })
+      .andWhere('(job.experience_min IS NULL OR job.experience_min <= 2)');
 
     // Search across title, company, description, skills, location
     if (search) {
@@ -90,7 +93,18 @@ export class JobsService {
     }
 
     // Sort
-    if (sort === 'popular') {
+    if (sort === 'most_score' && userSkills && userSkills.length > 0) {
+      const skillParams = userSkills.map(s => s.toLowerCase());
+      qb.addSelect(
+        `(SELECT COUNT(*) FROM job_post_skills jps 
+          JOIN skills s ON s.id = jps.skill_id 
+          WHERE jps.job_post_id = job.id AND LOWER(s.name) IN (:...userSkills))`,
+        'match_score'
+      );
+      qb.setParameter('userSkills', skillParams);
+      qb.orderBy('match_score', 'DESC');
+      qb.addOrderBy('job.posted_at', 'DESC');
+    } else if (sort === 'popular') {
       qb.orderBy('job.popularity_score', 'DESC');
     } else {
       qb.orderBy('job.posted_at', 'DESC');

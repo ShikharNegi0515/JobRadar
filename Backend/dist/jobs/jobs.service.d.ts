@@ -2,13 +2,14 @@ import { Repository } from 'typeorm';
 import { JobPost } from './entities/job-post.entity.js';
 export interface JobQueryOptions {
     search?: string;
-    sort?: 'recent' | 'popular';
+    sort?: 'recent' | 'popular' | 'most_score';
     location?: string;
     workMode?: string;
     employmentType?: string;
     experienceMin?: number;
     experienceMax?: number;
     skills?: string;
+    userSkills?: string[];
     page?: number;
     limit?: number;
 }
@@ -27,7 +28,7 @@ export declare class JobsService {
             };
             meta: {
                 window: string;
-                sort: "recent" | "popular";
+                sort: "recent" | "popular" | "most_score";
                 filters: {
                     search: string | undefined;
                     location: string | undefined;

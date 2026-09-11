@@ -10,7 +10,16 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(1);
-  const [sort, setSort] = useState<'recent' | 'popular'>('recent');
+  const [sort, setSort] = useState<'recent' | 'popular' | 'most_score'>('recent');
+
+  const [userSkills, setUserSkills] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('userSkills');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [isIngesting, setIsIngesting] = useState(false);
@@ -20,7 +29,13 @@ export default function Dashboard() {
     queryKey: ['jobs', search, page, sort],
     queryFn: async () => {
       const res = await api.get('/jobs', {
-        params: { search, page, limit: 12, sort }
+        params: { 
+          search, 
+          page, 
+          limit: 12, 
+          sort,
+          ...(sort === 'most_score' && userSkills.length > 0 ? { userSkills: userSkills.join(',') } : {})
+        }
       });
       return res.data;
     },
@@ -48,8 +63,12 @@ export default function Dashboard() {
     }
   };
 
-  const handleIngestionStart = async (resumeText: string, parsedData: { name: string | null; roles: string[]; search_keywords: string[] }) => {
+  const handleIngestionStart = async (resumeText: string, parsedData: { name: string | null; roles: string[]; search_keywords: string[]; skills: string[] }) => {
     setIsIngesting(true);
+    if (parsedData.skills && parsedData.skills.length > 0) {
+      setUserSkills(parsedData.skills);
+      localStorage.setItem('userSkills', JSON.stringify(parsedData.skills));
+    }
     const name = parsedData.name || 'you';
     setIngestionMsg(`🤖 Searching LinkedIn for ${parsedData.roles.slice(0, 2).join(' & ')} roles in India...`);
     try {
@@ -139,6 +158,7 @@ export default function Dashboard() {
           >
             <option value="recent">Sort: Most Recent</option>
             <option value="popular">Sort: Most Popular</option>
+            {userSkills.length > 0 && <option value="most_score">Sort: Best Match (Resume)</option>}
           </select>
         </div>
       </div>

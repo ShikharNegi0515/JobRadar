@@ -67,8 +67,8 @@ export class AIService {
     }
 
     try {
-      // Try gemini-2.5-flash or gemini-2.0-flash
-      const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+      // Try gemini-3.6-flash or gemini-2.0-flash
+      const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
       const model = this.genAI.getGenerativeModel({ model: modelName });
 
       const prompt = `You are a job post classifier and extractor. Analyze this LinkedIn post and determine if it contains a genuine job opportunity or hiring announcement.
@@ -125,7 +125,7 @@ Rules:
     }
 
     try {
-      const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+      const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
       const model = this.genAI.getGenerativeModel({ model: modelName });
 
       const prompt = `You are an expert resume parser for the Indian job market. Analyze this resume and extract key information.
@@ -202,7 +202,7 @@ IMPORTANT:
     }
 
     try {
-      const modelName = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+      const modelName = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
       const model = this.genAI.getGenerativeModel({ model: modelName });
 
       const prompt = `You are an expert AI Resume Matcher and Career Coach. Analyze candidate's resume/skills against a job role.

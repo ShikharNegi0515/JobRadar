@@ -17,16 +17,18 @@ let JobsController = class JobsController {
     constructor(jobsService) {
         this.jobsService = jobsService;
     }
-    async findAll(search, sort = 'recent', location, workMode, employmentType, experienceMin, experienceMax, skills, page = 1, limit = 20) {
+    async findAll(search, sort = 'recent', location, workMode, employmentType, experienceMin, experienceMax, skills, userSkillsParam, page = 1, limit = 20) {
+        const userSkills = userSkillsParam ? userSkillsParam.split(',').map(s => s.trim()) : undefined;
         return this.jobsService.findAll({
             search,
-            sort,
+            sort: sort,
             location,
             workMode,
             employmentType,
             experienceMin: experienceMin ? parseInt(experienceMin, 10) : undefined,
             experienceMax: experienceMax ? parseInt(experienceMax, 10) : undefined,
             skills,
+            userSkills,
             page,
             limit,
         });
@@ -49,10 +51,11 @@ __decorate([
     __param(5, Query('experienceMin')),
     __param(6, Query('experienceMax')),
     __param(7, Query('skills')),
-    __param(8, Query('page', new DefaultValuePipe(1), ParseIntPipe)),
-    __param(9, Query('limit', new DefaultValuePipe(20), ParseIntPipe)),
+    __param(8, Query('userSkills')),
+    __param(9, Query('page', new DefaultValuePipe(1), ParseIntPipe)),
+    __param(10, Query('limit', new DefaultValuePipe(20), ParseIntPipe)),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, String, String, String, String, String, String, Number, Number]),
+    __metadata("design:paramtypes", [String, String, String, String, String, String, String, String, String, Number, Number]),
     __metadata("design:returntype", Promise)
 ], JobsController.prototype, "findAll", null);
 __decorate([

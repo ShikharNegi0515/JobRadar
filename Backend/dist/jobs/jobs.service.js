@@ -20,14 +20,15 @@ let JobsService = class JobsService {
         this.jobPostsRepository = jobPostsRepository;
     }
     async findAll(options = {}) {
-        const { search, sort = 'recent', location, workMode, employmentType, experienceMin, experienceMax, skills, page = 1, limit = 20, } = options;
+        const { search, sort = 'recent', location, workMode, employmentType, experienceMin, experienceMax, skills, userSkills, page = 1, limit = 20, } = options;
         const take = Math.min(limit, 100);
         const skip = (page - 1) * take;
         const qb = this.jobPostsRepository
             .createQueryBuilder('job')
             .leftJoinAndSelect('job.skills', 'skill')
             .where('job.posted_at >= NOW() - INTERVAL \'24 hours\'')
-            .andWhere('job.status = :status', { status: JobStatus.ACTIVE });
+            .andWhere('job.status = :status', { status: JobStatus.ACTIVE })
+            .andWhere('(job.experience_min IS NULL OR job.experience_min <= 2)');
         if (search) {
             qb.andWhere(`(
           to_tsvector('english', job.job_title || ' ' || job.company_name || ' ' || COALESCE(job.description, '') || ' ' || COALESCE(job.location, '')) @@ plainto_tsquery('english', :search)
@@ -55,7 +56,16 @@ let JobsService = class JobsService {
             const skillList = skills.split(',').map((s) => s.trim());
             qb.andWhere('skill.name IN (:...skillList)', { skillList });
         }
-        if (sort === 'popular') {
+        if (sort === 'most_score' && userSkills && userSkills.length > 0) {
+            const skillParams = userSkills.map(s => s.toLowerCase());
+            qb.addSelect(`(SELECT COUNT(*) FROM job_post_skills jps 
+          JOIN skills s ON s.id = jps.skill_id 
+          WHERE jps.job_post_id = job.id AND LOWER(s.name) IN (:...userSkills))`, 'match_score');
+            qb.setParameter('userSkills', skillParams);
+            qb.orderBy('match_score', 'DESC');
+            qb.addOrderBy('job.posted_at', 'DESC');
+        }
+        else if (sort === 'popular') {
             qb.orderBy('job.popularity_score', 'DESC');
         }
         else {

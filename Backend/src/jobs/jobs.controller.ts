@@ -24,18 +24,22 @@ export class JobsController {
     @Query('experienceMin') experienceMin?: string,
     @Query('experienceMax') experienceMax?: string,
     @Query('skills') skills?: string,
+    @Query('userSkills') userSkillsParam?: string,
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number = 20,
   ) {
+    const userSkills = userSkillsParam ? userSkillsParam.split(',').map(s => s.trim()) : undefined;
+
     return this.jobsService.findAll({
       search,
-      sort,
+      sort: sort as any,
       location,
       workMode,
       employmentType,
       experienceMin: experienceMin ? parseInt(experienceMin, 10) : undefined,
       experienceMax: experienceMax ? parseInt(experienceMax, 10) : undefined,
       skills,
+      userSkills,
       page,
       limit,
     });
