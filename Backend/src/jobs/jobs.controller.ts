@@ -7,6 +7,8 @@ import {
   DefaultValuePipe,
   Optional,
   NotFoundException,
+  Post,
+  Body,
 } from '@nestjs/common';
 import { JobsService } from './jobs.service.js';
 
@@ -43,6 +45,15 @@ export class JobsController {
       page,
       limit,
     });
+  }
+
+  @Post('recommended')
+  async getRecommended(
+    @Body('userSkills') userSkills?: string[],
+    @Body('resumeText') resumeText?: string,
+  ) {
+    const safeUserSkills = userSkills || [];
+    return this.jobsService.getRecommendedJobs(safeUserSkills, resumeText);
   }
 
   @Get(':id')

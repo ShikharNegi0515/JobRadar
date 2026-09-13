@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { JobPost, JobStatus } from './entities/job-post.entity.js';
+import { AIService } from '../ai/ai.service.js';
 
 export interface JobQueryOptions {
   search?: string;
@@ -22,6 +23,8 @@ export class JobsService {
   constructor(
     @InjectRepository(JobPost)
     private jobPostsRepository: Repository<JobPost>,
+    @Inject(forwardRef(() => AIService))
+    private aiService: AIService,
   ) {}
 
   async findAll(options: JobQueryOptions = {}) {
@@ -155,6 +158,58 @@ export class JobsService {
       .where('job.posted_at >= NOW() - INTERVAL \'24 hours\'')
       .andWhere('job.status = :status', { status: JobStatus.ACTIVE })
       .getCount();
+  }
+
+  async getRecommendedJobs(userSkills: string[], resumeText?: string) {
+    const qb = this.jobPostsRepository
+      .createQueryBuilder('job')
+      .leftJoinAndSelect('job.skills', 'skill')
+      .where('job.posted_at >= NOW() - INTERVAL \'24 hours\'')
+      .andWhere('job.status = :status', { status: JobStatus.ACTIVE })
+      .andWhere('(job.experience_min IS NULL OR job.experience_min <= 2)')
+      // Also ensure experience_max is not exclusively senior (e.g. 5+)
+      .andWhere('(job.experience_max IS NULL OR job.experience_max <= 5)')
+      .orderBy('job.posted_at', 'DESC')
+      .take(20); // Limit to 20 for AI performance/rate limits
+
+    const jobs = await qb.getMany();
+    const scoredJobs = [];
+
+    const safeUserSkills = userSkills && userSkills.length > 0 
+      ? userSkills 
+      : ['React', 'TypeScript', 'Node.js'];
+
+    for (const job of jobs) {
+      const jobSkills = job.skills ? job.skills.map(s => s.name) : [];
+      
+      const aiResult = await this.aiService.analyzeResumeMatch(
+        job.job_title || 'Software Developer',
+        job.description || '',
+        jobSkills,
+        safeUserSkills,
+        resumeText
+      );
+
+      // Discard bad fits (score < 60)
+      if (aiResult.match_score >= 60) {
+        scoredJobs.push({
+          ...job,
+          ai_match: aiResult
+        });
+      }
+    }
+
+    scoredJobs.sort((a, b) => b.ai_match.match_score - a.ai_match.match_score);
+
+    return {
+      success: true,
+      data: scoredJobs,
+      meta: {
+        totalEvaluated: jobs.length,
+        totalRecommended: scoredJobs.length,
+        threshold: 60,
+      }
+    };
   }
 
   async seedMockJobs(): Promise<void> {

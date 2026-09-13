@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Controller, Get, Param, Query, ParseIntPipe, DefaultValuePipe, NotFoundException, } from '@nestjs/common';
+import { Controller, Get, Param, Query, ParseIntPipe, DefaultValuePipe, NotFoundException, Post, Body, } from '@nestjs/common';
 import { JobsService } from './jobs.service.js';
 let JobsController = class JobsController {
     jobsService;
@@ -32,6 +32,10 @@ let JobsController = class JobsController {
             page,
             limit,
         });
+    }
+    async getRecommended(userSkills, resumeText) {
+        const safeUserSkills = userSkills || [];
+        return this.jobsService.getRecommendedJobs(safeUserSkills, resumeText);
     }
     async findOne(id) {
         const result = await this.jobsService.findById(id);
@@ -58,6 +62,14 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String, String, String, String, String, String, String, Number, Number]),
     __metadata("design:returntype", Promise)
 ], JobsController.prototype, "findAll", null);
+__decorate([
+    Post('recommended'),
+    __param(0, Body('userSkills')),
+    __param(1, Body('resumeText')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Array, String]),
+    __metadata("design:returntype", Promise)
+], JobsController.prototype, "getRecommended", null);
 __decorate([
     Get(':id'),
     __param(0, Param('id')),

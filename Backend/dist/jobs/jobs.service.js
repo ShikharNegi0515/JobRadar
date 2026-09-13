@@ -10,14 +10,17 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JobPost, JobStatus } from './entities/job-post.entity.js';
+import { AIService } from '../ai/ai.service.js';
 let JobsService = class JobsService {
     jobPostsRepository;
-    constructor(jobPostsRepository) {
+    aiService;
+    constructor(jobPostsRepository, aiService) {
         this.jobPostsRepository = jobPostsRepository;
+        this.aiService = aiService;
     }
     async findAll(options = {}) {
         const { search, sort = 'recent', location, workMode, employmentType, experienceMin, experienceMax, skills, userSkills, page = 1, limit = 20, } = options;
@@ -110,6 +113,42 @@ let JobsService = class JobsService {
             .where('job.posted_at >= NOW() - INTERVAL \'24 hours\'')
             .andWhere('job.status = :status', { status: JobStatus.ACTIVE })
             .getCount();
+    }
+    async getRecommendedJobs(userSkills, resumeText) {
+        const qb = this.jobPostsRepository
+            .createQueryBuilder('job')
+            .leftJoinAndSelect('job.skills', 'skill')
+            .where('job.posted_at >= NOW() - INTERVAL \'24 hours\'')
+            .andWhere('job.status = :status', { status: JobStatus.ACTIVE })
+            .andWhere('(job.experience_min IS NULL OR job.experience_min <= 2)')
+            .andWhere('(job.experience_max IS NULL OR job.experience_max <= 5)')
+            .orderBy('job.posted_at', 'DESC')
+            .take(20);
+        const jobs = await qb.getMany();
+        const scoredJobs = [];
+        const safeUserSkills = userSkills && userSkills.length > 0
+            ? userSkills
+            : ['React', 'TypeScript', 'Node.js'];
+        for (const job of jobs) {
+            const jobSkills = job.skills ? job.skills.map(s => s.name) : [];
+            const aiResult = await this.aiService.analyzeResumeMatch(job.job_title || 'Software Developer', job.description || '', jobSkills, safeUserSkills, resumeText);
+            if (aiResult.match_score >= 60) {
+                scoredJobs.push({
+                    ...job,
+                    ai_match: aiResult
+                });
+            }
+        }
+        scoredJobs.sort((a, b) => b.ai_match.match_score - a.ai_match.match_score);
+        return {
+            success: true,
+            data: scoredJobs,
+            meta: {
+                totalEvaluated: jobs.length,
+                totalRecommended: scoredJobs.length,
+                threshold: 60,
+            }
+        };
     }
     async seedMockJobs() {
         const count = await this.getCount();
@@ -303,7 +342,9 @@ let JobsService = class JobsService {
 JobsService = __decorate([
     Injectable(),
     __param(0, InjectRepository(JobPost)),
-    __metadata("design:paramtypes", [Repository])
+    __param(1, Inject(forwardRef(() => AIService))),
+    __metadata("design:paramtypes", [Repository,
+        AIService])
 ], JobsService);
 export { JobsService };
 //# sourceMappingURL=jobs.service.js.map
