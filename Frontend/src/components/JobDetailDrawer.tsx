@@ -137,8 +137,8 @@ export default function JobDetailDrawer({ job, onClose, onSave, onApply, onAIMat
                 <DollarSign size={12} /> {salary}
               </span>
             )}
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#111118] text-gray-400 border border-[#2a2a3a]">
-                            <LinkedInIcon size={12} className="text-blue-400" /> LinkedIn
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#111118] text-gray-400 border border-[#2a2a3a] capitalize">
+              {job.source !== 'remotive' && <LinkedInIcon size={12} className="text-blue-400" />} {job.source || 'LinkedIn'}
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#111118] text-gray-400 border border-[#2a2a3a]">
               <Clock size={12} /> {timeAgo}
@@ -282,9 +282,9 @@ export default function JobDetailDrawer({ job, onClose, onSave, onApply, onAIMat
               href={sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-sky-600/20"
+              className={`w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-lg ${job.source === 'remotive' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 shadow-purple-600/20' : 'bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 shadow-sky-600/20'}`}
             >
-                            <LinkedInIcon size={16} /> View Original LinkedIn Post
+              {job.source !== 'remotive' && <LinkedInIcon size={16} />} View Original {job.source === 'remotive' ? 'Remotive' : 'LinkedIn'} Post
               <ExternalLink size={14} className="ml-1 opacity-70" />
             </a>
           </div>

@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
 import * as crypto from 'crypto';
 import { LinkedInScraperService } from './linkedin-scraper.service.js';
+import { IndeedScraperService } from './indeed-scraper.service.js';
+import { JobScraper, ScrapedPost } from './scraper.interface.js';
 import { AIService } from '../ai/ai.service.js';
 import { JobPost, JobStatus, WorkMode, EmploymentType } from '../jobs/entities/job-post.entity.js';
 import { Skill } from '../skills/entities/skill.entity.js';
@@ -40,14 +42,19 @@ export class IngestionService {
   private readonly logger = new Logger(IngestionService.name);
   private isRunning = false;
 
+  private scrapers: JobScraper[];
+
   constructor(
-    private readonly scraper: LinkedInScraperService,
+    private readonly linkedInScraper: LinkedInScraperService,
+    private readonly indeedScraper: IndeedScraperService,
     private readonly ai: AIService,
     @InjectRepository(JobPost)
     private readonly jobRepo: Repository<JobPost>,
     @InjectRepository(Skill)
     private readonly skillRepo: Repository<Skill>,
-  ) {}
+  ) {
+    this.scrapers = [this.linkedInScraper, this.indeedScraper];
+  }
 
   // Run every 30 minutes
   @Cron('0 */30 * * * *')
@@ -93,12 +100,24 @@ export class IngestionService {
         }
       }
 
-      // Step 1: Scrape LinkedIn posts
-      const posts = await this.scraper.scrapeJobPosts(searchKeywords);
-      this.logger.log(`📥 Scraped ${posts.length} raw posts from LinkedIn`);
+      // Step 1: Scrape job posts from all sources
+      const allPosts: ScrapedPost[] = [];
+      for (const scraper of this.scrapers) {
+        this.logger.log(`📥 Starting scrape for source: ${scraper.sourceName}`);
+        try {
+          const posts = await scraper.scrapeJobPosts(searchKeywords);
+          // Ensure source is set
+          posts.forEach(p => p.source = p.source || scraper.sourceName);
+          allPosts.push(...posts);
+          this.logger.log(`✅ Scraped ${posts.length} posts from ${scraper.sourceName}`);
+        } catch (err) {
+          this.logger.error(`Failed to scrape from ${scraper.sourceName}: ${err instanceof Error ? err.message : err}`);
+        }
+      }
+      this.logger.log(`📥 Total scraped ${allPosts.length} raw posts`);
 
       // Step 2: Process each post through AI
-      for (const post of posts) {
+      for (const post of allPosts) {
         processed++;
         try {
           // Check for duplicate by content hash
@@ -153,7 +172,7 @@ export class IngestionService {
 
           // Persist the job post
           const jobPost = new JobPost();
-          jobPost.source = 'linkedin';
+          jobPost.source = post.source || 'linkedin';
           jobPost.source_post_id = post.sourcePostId;
           jobPost.source_url = post.postUrl || '';
           jobPost.author_name = post.authorName;

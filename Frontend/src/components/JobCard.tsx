@@ -25,7 +25,30 @@ const workModeColors: Record<string, string> = {
 export default function JobCard({ job, onSave, onApply, saved = false }: JobCardProps) {
   const [showAIMatch, setShowAIMatch] = useState(false);
   const [showDrawer, setShowDrawer] = useState(false);
-  const [isOpened, setIsOpened] = useState(false);
+  const [isOpened, setIsOpened] = useState(() => {
+    try {
+      const viewed = localStorage.getItem('viewed_jobs');
+      return viewed ? JSON.parse(viewed).includes(job.id) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const handleOpen = () => {
+    setShowDrawer(true);
+    if (!isOpened) {
+      setIsOpened(true);
+      try {
+        const viewed = localStorage.getItem('viewed_jobs');
+        const viewedArray = viewed ? JSON.parse(viewed) : [];
+        if (!viewedArray.includes(job.id)) {
+          viewedArray.push(job.id);
+          if (viewedArray.length > 1000) viewedArray.shift();
+          localStorage.setItem('viewed_jobs', JSON.stringify(viewedArray));
+        }
+      } catch {}
+    }
+  };
 
   const timeAgo = formatDistanceToNow(new Date(job.posted_at), { addSuffix: true });
 
@@ -60,7 +83,7 @@ export default function JobCard({ job, onSave, onApply, saved = false }: JobCard
     <>
       {/* ── Card ── */}
       <div
-        onClick={() => { setShowDrawer(true); setIsOpened(true); }}
+        onClick={handleOpen}
         className={`relative flex flex-col border rounded-2xl overflow-hidden cursor-pointer group fade-in transition-all duration-300 ${
           isOpened
             ? 'bg-[#0c0c12] border-[#1a1a28] opacity-55 saturate-[0.3]'
@@ -86,8 +109,8 @@ export default function JobCard({ job, onSave, onApply, saved = false }: JobCard
             </span>
           ) : (
             <>
-              <span className="bg-blue-600/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-blue-400/50 backdrop-blur-sm">
-                LI
+              <span className={`text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border backdrop-blur-sm ${job.source === 'remotive' ? 'bg-purple-600/80 border-purple-400/50' : 'bg-blue-600/80 border-blue-400/50'}`}>
+                {job.source === 'remotive' ? 'RM' : 'LI'}
               </span>
               <span className="bg-indigo-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-indigo-400/50 shadow-[0_0_8px_rgba(99,102,241,0.5)]">
                 NEW
@@ -99,8 +122,8 @@ export default function JobCard({ job, onSave, onApply, saved = false }: JobCard
         {/* Not-opened: LI badge always visible */}
         {isOpened && (
           <div className="absolute top-3 right-20 z-10">
-            <span className="bg-blue-600/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-blue-400/30 backdrop-blur-sm">
-              LI
+            <span className={`text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border backdrop-blur-sm ${job.source === 'remotive' ? 'bg-purple-600/60 border-purple-400/30' : 'bg-blue-600/60 border-blue-400/30'}`}>
+              {job.source === 'remotive' ? 'RM' : 'LI'}
             </span>
           </div>
         )}

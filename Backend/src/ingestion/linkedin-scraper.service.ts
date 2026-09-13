@@ -3,20 +3,13 @@ import { chromium, Browser, BrowserContext, Page } from 'playwright';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
-
-export interface ScrapedPost {
-  sourcePostId: string;
-  authorName: string;
-  authorProfileUrl: string;
-  content: string;
-  postUrl: string;
-  likes: number;
-  comments: number;
-  postedAt: Date;
-}
+import { JobScraper, ScrapedPost } from './scraper.interface.js';
 
 @Injectable()
-export class LinkedInScraperService {
+export class LinkedInScraperService implements JobScraper {
+  get sourceName(): string {
+    return 'linkedin';
+  }
   private readonly logger = new Logger(LinkedInScraperService.name);
   private readonly cookiesPath = path.join(process.cwd(), 'linkedin-session.json');
 
