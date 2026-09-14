@@ -243,18 +243,26 @@ export default function ResumeModal({ onClose, onIngestionStart }: ResumeModalPr
 
               {/* Generated keywords */}
               <div>
-                <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <Sparkles size={11} /> LinkedIn Search Keywords ({parsedData.search_keywords.length})
-                </p>
-                <div className="bg-[#111118] border border-[#2a2a3a] rounded-xl divide-y divide-[#1e1e2e]">
-                  {parsedData.search_keywords.map((kw, i) => (
-                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 text-sm">
-                      <span className="text-indigo-500 font-mono text-xs w-5 shrink-0">{i + 1}.</span>
-                      <span className="text-gray-300 flex-1">{kw}</span>
-                      <ChevronRight size={14} className="text-gray-600 shrink-0" />
-                    </div>
-                  ))}
-                </div>
+                {(() => {
+                  const allKeywords = [...parsedData.search_keywords];
+                  if (!allKeywords.includes('software developer')) allKeywords.push('software developer');
+                  return (
+                    <>
+                      <p className="text-xs text-gray-500 font-medium uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                        <Sparkles size={11} /> LinkedIn Search Keywords ({allKeywords.length})
+                      </p>
+                      <div className="bg-[#111118] border border-[#2a2a3a] rounded-xl divide-y divide-[#1e1e2e]">
+                        {allKeywords.map((kw, i) => (
+                          <div key={i} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                            <span className="text-indigo-500 font-mono text-xs w-5 shrink-0">{i + 1}.</span>
+                            <span className="text-gray-300 flex-1">{kw}</span>
+                            <ChevronRight size={14} className="text-gray-600 shrink-0" />
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="flex gap-3 pt-1">

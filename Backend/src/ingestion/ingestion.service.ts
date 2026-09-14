@@ -35,6 +35,7 @@ const SEARCH_KEYWORDS = [
   'hiring fullstack developer',
   'urgent hiring developer',
   'job opening software engineer',
+  'software developer',
 ];
 
 @Injectable()
@@ -90,7 +91,8 @@ export class IngestionService {
           this.logger.log('📄 Parsing resume to extract personalized search keywords...');
           const parsed = await this.ai.parseResume(resumeText);
           if (parsed.search_keywords && parsed.search_keywords.length > 0) {
-            searchKeywords = parsed.search_keywords;
+            // Always include "software developer" keyword in addition to resume-driven ones
+            searchKeywords = [...parsed.search_keywords, 'software developer'];
             resumeParsed = true;
             this.logger.log(`✅ Resume parsed for: ${parsed.name || 'candidate'} — ${parsed.roles.join(', ')}`);
             this.logger.log(`🔍 Using ${searchKeywords.length} resume-driven keywords: ${searchKeywords.join(' | ')}`);

@@ -205,6 +205,23 @@ export default function JobCard({ job, onSave, onApply, saved = false }: JobCard
               <span className="flex items-center gap-1">
                 <Clock size={11} /> {timeAgo}
               </span>
+              
+              {job.match_score !== undefined && (
+                <span className="flex items-center gap-1 text-emerald-400 font-bold" title="Skill Match">
+                  🎯 {job.match_score} Match
+                </span>
+              )}
+              {job.ai_match?.match_score !== undefined && (
+                <span className="flex items-center gap-1 text-purple-400 font-bold" title="AI Match">
+                  ✨ {job.ai_match.match_score}% AI
+                </span>
+              )}
+              {job.popularity_score > 0 && job.match_score === undefined && !job.ai_match && (
+                <span className="flex items-center gap-1 text-amber-400/80 font-medium" title="Popularity Score">
+                  🔥 {job.popularity_score}
+                </span>
+              )}
+
               {((job as any).likes > 0 || (job as any).comments > 0) && (
                 <span className="flex items-center gap-2">
                   {(job as any).likes > 0 && (

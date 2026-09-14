@@ -29,6 +29,8 @@ export interface JobPost {
   likes?: number;
   comments?: number;
   popularity_score: number;
+  match_score?: number;
+  ai_match?: AIMatchResult;
   skills: Skill[];
   status: 'ACTIVE' | 'EXPIRED' | 'FLAGGED';
 }

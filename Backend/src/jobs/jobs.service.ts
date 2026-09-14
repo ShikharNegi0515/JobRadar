@@ -115,7 +115,25 @@ export class JobsService {
 
     qb.take(take).skip(skip);
 
-    const [jobs, total] = await qb.getManyAndCount();
+    let jobs: any[];
+    let total: number;
+
+    if (sort === 'most_score' && userSkills && userSkills.length > 0) {
+      const { entities, raw } = await qb.getRawAndEntities();
+      total = await qb.getCount();
+      jobs = entities.map((entity, index) => {
+        // Fallback to index if job_id isn't directly matching due to TypeORM aliasing
+        const rawResult = raw.find(r => r.job_id === entity.id) || raw[index];
+        return {
+          ...entity,
+          match_score: rawResult?.match_score ? parseInt(rawResult.match_score, 10) : undefined,
+        };
+      });
+    } else {
+      const result = await qb.getManyAndCount();
+      jobs = result[0];
+      total = result[1];
+    }
 
     return {
       success: true,
